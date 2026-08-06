@@ -22,6 +22,7 @@ export default function IssueReturn({ books, setBooks, members, txns, setTxns, a
   const [bAcc, setBAcc] = useState("");
   const [mId, setMId] = useState("");
   const [q, setQ] = useState("");
+  const recentIssues = [...txns].filter(t => t.status !== "Returned").sort((a, b) => parseInt(b.id.replace(/\D/g, "")) - parseInt(a.id.replace(/\D/g, ""))).slice(0, 5);
 
   /**
    * Action handler: Looks up member and book, validates if they can borrow it,
@@ -94,6 +95,24 @@ export default function IssueReturn({ books, setBooks, members, txns, setTxns, a
             </div>
           </div>
           <div className="card-empty">Scanner interface placeholder<br /><Icon n="qr" s={40} style={{ margin: "14px 0", opacity: 0.5 }} /><br />Connect physical scanner</div>
+          <div className="card" style={{ padding: 16 }}>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 16, fontWeight: 700, marginBottom: 12 }}>Recent Issues</div>
+            {recentIssues.length === 0 ? (
+              <div style={{ color: 'var(--muted)', fontSize: 13 }}>No active issues.</div>
+            ) : (
+              <div style={{ display: 'grid', gap: 10 }}>
+                {recentIssues.map(t => (
+                  <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid rgba(0,0,0,0.06)', padding: 10, borderRadius: 8 }}>
+                    <div>
+                      <div style={{ fontWeight: 700 }}>{t.book}</div>
+                      <div style={{ fontSize: 12, color: 'var(--muted)' }}>{t.member} · {t.issueDate} · Due {t.dueDate}</div>
+                    </div>
+                    <span className={`badge ${t.status === 'Overdue' ? 'br' : 'by'}`} style={{ fontSize: 11, padding: '4px 8px' }}>{t.status}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
