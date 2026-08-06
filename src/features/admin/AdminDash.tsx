@@ -79,6 +79,23 @@ export default function AdminDash({ books, members, txns, setBooks, setTxns, add
     setAccessionNo("");
   };
 
+  const renewTxn = (txn: Transaction) => {
+    if ((txn as any).renewed) return addToast("warning", "This loan has already been renewed.");
+    const due = new Date(); due.setDate(due.getDate() + 14);
+    const dueDate = due.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    setTxns(txns.map(t => t.id === txn.id ? { ...t, dueDate, renewed: true } : t));
+    addToast("success", `Renewed \"${txn.book}\" for ${txn.member} until ${dueDate}`);
+  };
+
+  const quickReturn = (txn: Transaction) => {
+    const bk = books.find(b => b.id === txn.bookId);
+    setTxns(txns.map(t => t.id === txn.id ? { ...t, status: "Returned", returnDate: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" }) } : t));
+    if (bk) setBooks(books.map(b => b.id === bk.id ? { ...b, available: b.available + 1 } : b));
+    const fine = calcFine(txn.dueDate);
+    if (fine > 0) addToast("warning", `Book returned. Fine: ₹${fine} added.`);
+    else addToast("success", "Book returned successfully.");
+  };
+
   /**
    * Helper function to print the dashboard reports.
    * Grabs a specific element by ID and opens it in a temporary print window.
@@ -151,7 +168,11 @@ export default function AdminDash({ books, members, txns, setBooks, setTxns, add
                   <div style={{ fontSize: 14, fontWeight: 700 }}>{txn.book}</div>
                   <div style={{ fontSize: 12, color: 'var(--muted)' }}>{txn.member} · {txn.issueDate} · Due {txn.dueDate}</div>
                 </div>
-                <span className={`badge ${txn.status === 'Overdue' ? 'br' : 'by'}`} style={{ fontSize: 11, padding: '4px 8px' }}>{txn.status}</span>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <button className="btn bs bsm" onClick={() => renewTxn(txn)} disabled={(txn as any).renewed}><Icon n="clock" s={12} /> Renew</button>
+                  <button className="btn bs bsm" onClick={() => quickReturn(txn)}><Icon n="repeat" s={12} /> Return</button>
+                  <span className={`badge ${txn.status === 'Overdue' ? 'br' : 'by'}`} style={{ fontSize: 11, padding: '4px 8px' }}>{txn.status}</span>
+                </div>
               </div>
             ))}
           </div>

@@ -70,6 +70,14 @@ export default function IssueReturn({ books, setBooks, members, txns, setTxns, a
     else addToast("success", "Book returned successfully.");
   };
 
+  const renewTxn = (txn: Transaction) => {
+    if ((txn as any).renewed) return addToast("warning", "This loan has already been renewed.");
+    const due = new Date(); due.setDate(due.getDate() + 14);
+    const dueDate = due.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    setTxns(txns.map(t => t.id === txn.id ? { ...t, dueDate, renewed: true } : t));
+    addToast("success", `Renewed \"${txn.book}\" for ${txn.member} until ${dueDate}`);
+  };
+
   const actTx = txns.filter(t => t.status !== "Returned" && (!q || t.book.toLowerCase().includes(q.toLowerCase()) || t.member.toLowerCase().includes(q.toLowerCase())));
 
   return (
@@ -107,7 +115,11 @@ export default function IssueReturn({ books, setBooks, members, txns, setTxns, a
                       <div style={{ fontWeight: 700 }}>{t.book}</div>
                       <div style={{ fontSize: 12, color: 'var(--muted)' }}>{t.member} · {t.issueDate} · Due {t.dueDate}</div>
                     </div>
-                    <span className={`badge ${t.status === 'Overdue' ? 'br' : 'by'}`} style={{ fontSize: 11, padding: '4px 8px' }}>{t.status}</span>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      <button className="btn bs bsm" onClick={() => renewTxn(t)} disabled={(t as any).renewed}><Icon n="clock" s={12} /> Renew</button>
+                      <button className="btn bs bsm" onClick={() => returnB(t)}><Icon n="repeat" s={12} /> Return</button>
+                      <span className={`badge ${t.status === 'Overdue' ? 'br' : 'by'}`} style={{ fontSize: 11, padding: '4px 8px' }}>{t.status}</span>
+                    </div>
                   </div>
                 ))}
               </div>
