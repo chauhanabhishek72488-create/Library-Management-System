@@ -228,7 +228,7 @@ export default function App() {
     }
     
     // Admin Routes
-    if (page === "dashboard") return <AdminDash books={books} members={members} txns={txns} />;
+    if (page === "dashboard") return <AdminDash books={books} members={members} txns={txns} setBooks={setBooks} setTxns={setTxns} addToast={addToast} />;
     if (page === "books") return <Books books={books} setBooks={setBooks} addToast={addToast} />;
     if (page === "periodicals") return <Periodicals addToast={addToast} isAdmin={true} />;
     if (page === "articles") return <Articles addToast={addToast} isAdmin={true} />;

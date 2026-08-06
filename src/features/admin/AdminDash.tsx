@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import Icon from '../../components/ui/Icon';
 import { Book, Member, Transaction } from '../../types';
 import { calcFine } from '../../utils/helpers';
@@ -7,6 +7,9 @@ interface AdminDashProps {
   books: Book[];
   members: Member[];
   txns: Transaction[];
+  setBooks: (bs: Book[]) => void;
+  setTxns: (t: Transaction[]) => void;
+  addToast: (type: string, msg: string) => void;
 }
 
 /**
@@ -14,12 +17,18 @@ interface AdminDashProps {
  * Displays a high-level overview of library statistics for staff members.
  * It calculates totals, issues, categories, and monthly trends using the mock database.
  */
-export default function AdminDash({ books, members, txns }: AdminDashProps) {
+export default function AdminDash({ books, members, txns, setBooks, setTxns, addToast }: AdminDashProps) {
   // Aggregate total copies of all books
   const tot = books.reduce((s, b) => s + b.copies, 0);
   
   // Calculate total currently issued books (Total copies minus available copies)
   const iss = books.reduce((s, b) => s + (b.copies - b.available), 0);
+  const [memberId, setMemberId] = useState("");
+  const [accessionNo, setAccessionNo] = useState("");
+  const recentIssues = [...txns]
+    .filter(t => t.status !== "Returned")
+    .sort((a, b) => parseInt(b.id.replace(/\D/g, "")) - parseInt(a.id.replace(/\D/g, "")))
+    .slice(0, 4);
   const cats = [
     { l: "Fiction", v: 34, c: "var(--accent)" },
     { l: "Classic", v: 22, c: "var(--a2)" },
@@ -35,6 +44,40 @@ export default function AdminDash({ books, members, txns }: AdminDashProps) {
   
   // Calculate total live fines across all members' transactions
   const totalFines = txns.reduce((s, t) => s + calcFine(t.dueDate, t.returnDate), 0);
+
+  const issueBook = () => {
+    const bk = books.find(b => b.accessionNo.toLowerCase() === accessionNo.toLowerCase());
+    const mb = members.find(m => m.memberId.toLowerCase() === memberId.toLowerCase());
+    if (!bk) return addToast("error", "Accession number not found.");
+    if (bk.available < 1) return addToast("error", "Book is out of stock.");
+    if (!mb) return addToast("error", "Member ID not found.");
+    if (mb.status !== "Active") return addToast("error", "Member account is not active.");
+    const activeLoans = txns.filter(t => t.memberId === mb.id && t.status !== "Returned");
+    if (activeLoans.length >= 3) return addToast("warning", "Member reached borrowing limit (3).\n");
+
+    const issueDate = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    const due = new Date();
+    due.setDate(due.getDate() + 14);
+    const dueDate = due.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    const newTxn: Transaction = {
+      id: "t" + Date.now(),
+      bookId: bk.id,
+      book: bk.title,
+      memberId: mb.id,
+      member: mb.name,
+      issueDate,
+      dueDate,
+      returnDate: null,
+      status: "Issued",
+      fine: 0,
+      renewed: false,
+    };
+    setTxns([newTxn, ...txns]);
+    setBooks(books.map(b => b.id === bk.id ? { ...b, available: b.available - 1 } : b));
+    addToast("success", `Issued \"${bk.title}\" to ${mb.name}`);
+    setMemberId("");
+    setAccessionNo("");
+  };
 
   /**
    * Helper function to print the dashboard reports.
@@ -76,6 +119,42 @@ export default function AdminDash({ books, members, txns }: AdminDashProps) {
               <div className="sico">{s.i}</div>
             </div>
           ))}
+        </div>
+        <div className="g g2" style={{ marginBottom: 20 }}>
+          <div className="card" style={{ padding: 24, minHeight: 280 }}>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 18, fontWeight: 700, marginBottom: 16 }}>Quick Issue</div>
+            <p style={{ margin: 0, marginBottom: 18, color: "var(--muted)", fontSize: 13 }}>Issue a book directly from the admin dashboard using Member ID and Accession Number.</p>
+            <div className="fg"><label className="fl">Member ID</label><div className="fiw"><span className="fii"><Icon n="user" s={14} /></span><input className="fi" placeholder="e.g. LIB-2024-001" value={memberId} onChange={e => setMemberId(e.target.value)} /></div></div>
+            <div className="fg"><label className="fl">Book Accession No</label><div className="fiw"><span className="fii"><Icon n="qr" s={14} /></span><input className="fi" placeholder="e.g. ACC-2025-001" value={accessionNo} onChange={e => setAccessionNo(e.target.value)} /></div></div>
+            <button className="btn bp" style={{ width: "100%", marginTop: 8 }} onClick={issueBook} disabled={!memberId || !accessionNo}><Icon n="repeat" s={15} /> Issue Book</button>
+            <div style={{ marginTop: 16, padding: "12px 16px", background: "rgba(69,201,160,.08)", border: "1px solid rgba(69,201,160,.2)", borderRadius: 8, fontSize: 12, color: "var(--a3)" }}>
+              <Icon n="check" s={12} /> Standard loan period: 14 days<br /><Icon n="x" s={12} /> Late fine: ₹10/day
+            </div>
+          </div>
+          <div className="card">
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 16, fontWeight: 700, marginBottom: 16 }}>Issue Activity</div>
+            <div style={{ fontSize: 13, color: "var(--muted)", lineHeight: 1.7 }}>
+              Members with active loans: {members.filter(m => txns.filter(t => t.memberId === m.id && t.status !== "Returned").length > 0).length}<br />
+              Total issued transactions: {txns.filter(t => t.status !== "Returned").length}<br />
+              Active borrowing limit: 3 books per member
+            </div>
+          </div>
+        </div>
+        <div className="card" style={{ padding: 20 }}>
+          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 16, fontWeight: 700, marginBottom: 16 }}>Recent Issues</div>
+          <div style={{ display: 'grid', gap: 12 }}>
+            {recentIssues.length === 0 ? (
+              <div style={{ color: 'var(--muted)', fontSize: 13 }}>No active issues yet.</div>
+            ) : recentIssues.map(txn => (
+              <div key={txn.id} style={{ border: '1px solid rgba(0,0,0,0.08)', borderRadius: 12, padding: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 700 }}>{txn.book}</div>
+                  <div style={{ fontSize: 12, color: 'var(--muted)' }}>{txn.member} · {txn.issueDate} · Due {txn.dueDate}</div>
+                </div>
+                <span className={`badge ${txn.status === 'Overdue' ? 'br' : 'by'}`} style={{ fontSize: 11, padding: '4px 8px' }}>{txn.status}</span>
+              </div>
+            ))}
+          </div>
         </div>
         <div className="g g2">
           <div className="card">
