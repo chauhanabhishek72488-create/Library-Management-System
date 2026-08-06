@@ -1,0 +1,23 @@
+# Root gitignore for Library Management System repo
+# Ignore node_modules and build output at root and nested project folders
+node_modules/
+dist/
+.env
+.env.local
+.env.*.local
+.DS_Store
+.vscode/
+.idea/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Ignore nested project build files
+Library-Management-System-main (1)/Library-Management-System-main/node_modules/
+Library-Management-System-main (1)/Library-Management-System-main/dist/
+Library-Management-System-main (1)/Library-Management-System-main/.env
+Library-Management-System-main (1)/Library-Management-System-main/.env.local
+Library-Management-System-main (1)/Library-Management-System-main/.env.*.local
