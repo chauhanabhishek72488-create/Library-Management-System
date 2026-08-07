@@ -58,6 +58,14 @@ export default function App() {
   const [wishlist, setWishlist] = useState<string[]>([]);
 
   useEffect(() => {
+    if (dark) {
+      document.documentElement.classList.remove("lm");
+    } else {
+      document.documentElement.classList.add("lm");
+    }
+  }, [dark]);
+
+  useEffect(() => {
     // Attempt auto-seeding mock data in Firestore if blank
     seedInitialDataIfEmpty();
 
@@ -164,7 +172,7 @@ export default function App() {
 
   // If no user is logged in, restrict access and only render the AuthPage (Login Screen)
   if(!user) return (
-    <div className={dark ? "" : "lm"}>
+    <div className={dark ? "" : "lm"} style={{ background: "var(--bg)", color: "var(--text)", minHeight: "100vh" }}>
       <AuthPage onLogin={login} />
       <Toasts list={toasts as any} />
     </div>
@@ -251,7 +259,7 @@ export default function App() {
 
   // The Primary layout returning the Sidebar, Header Topbar, and injected content `renderPage()`.
   return (
-    <div className={dark ? "" : "lm"}>
+    <div className={dark ? "" : "lm"} style={{ background: "var(--bg)", color: "var(--text)", height: "100vh", overflow: "hidden" }}>
       <div style={{ display: "flex", height: "100vh", overflow: "hidden" }}>
         {/* Mobile Backdrop Overlay */}
         {mobileOpen && (
