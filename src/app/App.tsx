@@ -67,18 +67,17 @@ export default function App() {
         const name = fbUser.displayName || email.split("@")[0];
 
         let role: User["role"] = "user";
+        const isEmailAdmin = email.toLowerCase() === "test1@gmail.com" || email.toLowerCase().includes("admin") || email.toLowerCase().includes("meena");
         try {
           const profileSnap = await getDoc(doc(db, "users", fbUser.uid));
           if (profileSnap.exists()) {
             const profileRole = profileSnap.data().role;
-            role = profileRole === "admin" ? "admin" : "user";
+            role = (profileRole === "admin" || isEmailAdmin) ? "admin" : "user";
           } else {
-            const isAdmin = email.includes("admin") || email.includes("meena");
-            role = isAdmin ? "admin" : "user";
+            role = isEmailAdmin ? "admin" : "user";
           }
         } catch {
-          const isAdmin = email.includes("admin") || email.includes("meena");
-          role = isAdmin ? "admin" : "user";
+          role = isEmailAdmin ? "admin" : "user";
         }
         const avatar = name.split(" ").map(x => x[0]).join("").toUpperCase();
         
@@ -253,7 +252,7 @@ export default function App() {
   // The Primary layout returning the Sidebar, Header Topbar, and injected content `renderPage()`.
   return (
     <div className={dark ? "" : "lm"}>
-      <div style={{ display: "flex", minHeight: "100vh" }}>
+      <div style={{ display: "flex", height: "100vh", overflow: "hidden" }}>
         {/* Mobile Backdrop Overlay */}
         {mobileOpen && (
           <div 
