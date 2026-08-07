@@ -10,7 +10,7 @@ A React + Vite library management system UI with features for books, members, is
 - Tailwind CSS styling with custom UI components
 - Firebase integration support in `src/utils/firebase.ts`
 - Library dashboard, issue/return, reservations, fines, and member management pages
-- Admin reports and access control pages
+- Admin reports and access control pages.
 
 ## Getting Started
 
