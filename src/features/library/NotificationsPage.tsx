@@ -8,6 +8,8 @@ interface NotificationsPageProps {
   txns: Transaction[];
   reservations: Reservation[];
   addToast: (type: string, msg: string) => void;
+  logs: any[];
+  setLogs: React.Dispatch<React.SetStateAction<any[]>>;
 }
 
 /**
@@ -15,8 +17,7 @@ interface NotificationsPageProps {
  * An admin-facing dashboard logic module that lets staff send out bulk alerts
  * (e.g. Overdue Reminders, Hold Available, Fine Alerts) and logs system activity.
  */
-export default function NotificationsPage({ members, txns, reservations, addToast }: NotificationsPageProps) {
-  const [logs, setLogs] = useState(NOTIFICATIONS_LOG);
+export default function NotificationsPage({ members, txns, reservations, addToast, logs, setLogs }: NotificationsPageProps) {
 
   /** 
    * Simulates sending a bulk notification out to members. 

@@ -56,6 +56,7 @@ export default function App() {
   const [reservations, setReservations] = useState<Reservation[]>(RESERVATIONS_DATA);
   const [reviews, setReviews] = useState<Record<string, Review[]>>(REVIEWS_INIT);
   const [wishlist, setWishlist] = useState<string[]>([]);
+  const [notifications, setNotifications] = useState(NOTIFICATIONS_LOG);
 
   useEffect(() => {
     if (dark) {
@@ -191,7 +192,7 @@ export default function App() {
       {id:"members", l:"Members", ic:"users"}, 
       {id:"issue", l:"Issue & Return", ic:"refresh"}
     ]},
-    {s: "Services", items: [{id:"opac", l:"OPAC Catalog", ic:"opac"}, {id:"reservations", l:"Reservations", ic:"bookmark", b:reservations.filter(r=>r.status==="Active").length}, {id:"fines", l:"Fines & Payments", ic:"dollar"}, {id:"notif", l:"Notifications", ic:"sms", b:NOTIFICATIONS_LOG.filter(n=>!n.read).length}]},
+    {s: "Services", items: [{id:"opac", l:"OPAC Catalog", ic:"opac"}, {id:"reservations", l:"Reservations", ic:"bookmark", b:reservations.filter(r=>r.status==="Active").length}, {id:"fines", l:"Fines & Payments", ic:"dollar"}, {id:"notif", l:"Notifications", ic:"sms", b:notifications.filter(n=>!n.read).length}]},
     {s: "Insights", items: [{id:"reports", l:"Reports & Analytics", ic:"pieChart"}]},
     {s: "System", items: [{id:"access", l:"Access Control", ic:"shield"}, {id:"settings", l:"Settings", ic:"settings"}]},
   ];
@@ -203,7 +204,7 @@ export default function App() {
       {id:"articles", l:"Articles Column", ic:"fileText"},
       {id:"history", l:"Reading History", ic:"history", b:wishlist.length>0 ? wishlist.length : 0},
       {id:"ai", l:"AI Recommender", ic:"ai"},
-      {id:"notif", l:"Notifications", ic:"bell", b:1},
+      {id:"notif", l:"Notifications", ic:"bell", b:notifications.filter(n=>!n.read).length},
       {id:"settings", l:"Profile & Settings", ic:"settings"},
     ]},
   ];
@@ -229,7 +230,7 @@ export default function App() {
       if (page === "articles") return <Articles addToast={addToast} isAdmin={false} />;
       if (page === "history") return <ReadingHistory user={user} txns={txns} books={books} wishlist={wishlist} setWishlist={setWishlist} reviews={reviews} setReviews={setReviews} addToast={addToast} />;
       if (page === "ai") return <AIRecommender user={user} txns={txns} books={books} addToast={addToast} />;
-      if (page === "notif") return <NotificationsPage members={members} txns={txns} reservations={reservations} addToast={addToast} />;
+      if (page === "notif") return <NotificationsPage members={members} txns={txns} reservations={reservations} addToast={addToast} logs={notifications} setLogs={setNotifications} />;
       if (page === "settings") return <Settings user={user} dark={dark} setDark={setDark} addToast={addToast} />;
       return <UserDash user={user} books={books} txns={txns} wishlist={wishlist as any} setPage={setPage} />;
     }
@@ -244,7 +245,7 @@ export default function App() {
     if (page === "opac") return <OPAC books={books} reservations={reservations} setReservations={setReservations} addToast={addToast} reviews={reviews} setReviews={setReviews} wishlist={wishlist} setWishlist={setWishlist} user={user} />;
     if (page === "reservations") return <Reservations reservations={reservations} setReservations={setReservations} books={books} members={members} addToast={addToast} />;
     if (page === "fines") return <Fines txns={txns} addToast={addToast} />;
-    if (page === "notif") return <NotificationsPage members={members} txns={txns} reservations={reservations} addToast={addToast} />;
+    if (page === "notif") return <NotificationsPage members={members} txns={txns} reservations={reservations} addToast={addToast} logs={notifications} setLogs={setNotifications} />;
     if (page === "reports") return <Reports books={books} members={members} txns={txns} addToast={addToast} />;
     if (page === "access") return <AccessControl />;
     if (page === "settings") return <Settings user={user} dark={dark} setDark={setDark} addToast={addToast} />;
