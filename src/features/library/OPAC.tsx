@@ -162,7 +162,7 @@ export default function OPAC({ books, reservations, setReservations, addToast, r
       {/* Item Details Dialog */}
       {showD && (
         <div className="mo" onClick={e => e.target === e.currentTarget && setShowD(null)}>
-          <div className="mbox" style={{ maxWidth: 720, padding: 0, display: "flex", overflow: "hidden" }}>
+          <div className="mbox flex-responsive" style={{ maxWidth: 720, padding: 0, overflow: "hidden" }}>
             <div style={{ width: 240, background: `linear-gradient(135deg,${showD.available > 0 ? "rgba(69,201,160,.1)" : "rgba(224,92,92,.1)"},var(--surface2))`, display: "flex", flexDirection: "column", alignItems: "center", padding: 30 }}>
               <span style={{ fontSize: 80, marginBottom: 20 }}>{showD.emoji}</span>
               <div className="qrbox" style={{ width: 100, height: 100, marginTop: "auto" }}>

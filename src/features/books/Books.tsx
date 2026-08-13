@@ -295,7 +295,7 @@ export default function Books({ books, setBooks, addToast }: BooksProps) {
                 </button>
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div className="grid-form-responsive">
                 {/* Book Title */}
                 <div className="fg" style={{ gridColumn: "1 / -1" }}>
                   <label className="fl">Book Title *</label>

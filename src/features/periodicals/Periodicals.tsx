@@ -319,7 +319,7 @@ export default function Periodicals({ addToast, isAdmin = false }: PeriodicalsPr
               <div style={{ background: "rgba(69,201,160,.1)", border: "1px solid rgba(69,201,160,.3)", borderRadius: 8, padding: "8px 12px", marginBottom: 14 }}>
                 <div style={{ fontSize: 11, color: "var(--a3)", fontWeight: 700 }}>Auto Accession No: {autoAccNp}</div>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <div className="grid-form-responsive">
                 <div className="fg" style={{ gridColumn: "1 / -1" }}>
                   <label className="fl">Newspaper Name *</label>
                   <input className="fi fi-bare" placeholder="e.g. The Financial Express" value={npForm.name} onChange={e => setNpForm({ ...npForm, name: e.target.value })} />
@@ -379,7 +379,7 @@ export default function Periodicals({ addToast, isAdmin = false }: PeriodicalsPr
               <div style={{ background: "rgba(69,201,160,.1)", border: "1px solid rgba(69,201,160,.3)", borderRadius: 8, padding: "8px 12px", marginBottom: 14 }}>
                 <div style={{ fontSize: 11, color: "var(--a3)", fontWeight: 700 }}>Auto Accession No: {autoAccMag}</div>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <div className="grid-form-responsive">
                 <div className="fg" style={{ gridColumn: "1 / -1" }}>
                   <label className="fl">Magazine Title *</label>
                   <input className="fi fi-bare" placeholder="e.g. Harvard Business Review" value={magForm.title} onChange={e => setMagForm({ ...magForm, title: e.target.value })} />

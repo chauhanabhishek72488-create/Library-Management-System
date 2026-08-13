@@ -237,7 +237,7 @@ export default function Articles({ addToast, isAdmin = false }: ArticlesProps) {
                 <div style={{ fontSize: 11, color: "var(--a3)", fontWeight: 700 }}>Auto-Generated Accession No: {autoAccNo}</div>
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <div className="grid-form-responsive">
                 <div className="fg" style={{ gridColumn: "1 / -1" }}>
                   <label className="fl">Article Title *</label>
                   <input className="fi fi-bare" placeholder="Title of the research paper" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} />

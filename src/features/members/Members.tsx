@@ -45,38 +45,40 @@ export default function Members({ members, setMembers, addToast }: MembersProps)
       </div>
       
       <div id="members-print-area" className="card" style={{ padding: 0, overflow: "hidden" }}>
-        <table className="tbl">
-          <thead>
-            <tr><th>Member</th><th>ID & Type</th><th>Status</th><th className="no-print">Actions</th></tr>
-          </thead>
-          <tbody>
-            {filtered.map(m => (
-              <tr key={m.memberId}>
-                <td>
-                  <div className="uchip">
-                    <div className="av" style={{ background: "linear-gradient(135deg,var(--accent),#9a7438)" }}>{m.avatar}</div>
-                    <div><div className="uname">{m.name}</div><div className="urole">{m.email}</div></div>
-                  </div>
-                </td>
-                <td>
-                  <div style={{ fontFamily: "monospace", fontSize: 13, background: "rgba(255,255,255,.05)", padding: "2px 6px", borderRadius: 4, display: "inline-block", color: "var(--accent)" }}>{m.memberId}</div>
-                  <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4 }}>{m.memberType}</div>
-                </td>
-                <td><span className={`badge ${m.status === "Active" ? "bg" : m.status === "Suspended" ? "br" : "by"}`}>{m.status}</span></td>
-                <td className="no-print">
-                  <div style={{ display: "flex", gap: 6 }}>
-                    <button className="btn bs bsm" onClick={() => setShowQR(m)} title="Member ID QR"><Icon n="qr" s={12} /></button>
-                    {m.status === "Active" ? (
-                      <button className="btn bd bsm" onClick={() => mui(m.memberId, "Suspended")} title="Suspend"><Icon n="lock" s={12} /></button>
-                    ) : (
-                      <button className="btn bg bsm" onClick={() => mui(m.memberId, "Active")} title="Activate" style={{ color: "var(--a3)" }}><Icon n="check" s={12} /></button>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div className="tw" style={{ border: "none", borderRadius: 0 }}>
+          <table className="tbl">
+            <thead>
+              <tr><th>Member</th><th>ID & Type</th><th>Status</th><th className="no-print">Actions</th></tr>
+            </thead>
+            <tbody>
+              {filtered.map(m => (
+                <tr key={m.memberId}>
+                  <td>
+                    <div className="uchip">
+                      <div className="av" style={{ background: "linear-gradient(135deg,var(--accent),#9a7438)" }}>{m.avatar}</div>
+                      <div><div className="uname">{m.name}</div><div className="urole">{m.email}</div></div>
+                    </div>
+                  </td>
+                  <td>
+                    <div style={{ fontFamily: "monospace", fontSize: 13, background: "rgba(255,255,255,.05)", padding: "2px 6px", borderRadius: 4, display: "inline-block", color: "var(--accent)" }}>{m.memberId}</div>
+                    <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4 }}>{m.memberType}</div>
+                  </td>
+                  <td><span className={`badge ${m.status === "Active" ? "bg" : m.status === "Suspended" ? "br" : "by"}`}>{m.status}</span></td>
+                  <td className="no-print">
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <button className="btn bs bsm" onClick={() => setShowQR(m)} title="Member ID QR"><Icon n="qr" s={12} /></button>
+                      {m.status === "Active" ? (
+                        <button className="btn bd bsm" onClick={() => mui(m.memberId, "Suspended")} title="Suspend"><Icon n="lock" s={12} /></button>
+                      ) : (
+                        <button className="btn bg bsm" onClick={() => mui(m.memberId, "Active")} title="Activate" style={{ color: "var(--a3)" }}><Icon n="check" s={12} /></button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {showQR && (

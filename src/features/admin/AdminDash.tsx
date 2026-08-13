@@ -163,7 +163,7 @@ export default function AdminDash({ books, members, txns, setBooks, setTxns, add
             {recentIssues.length === 0 ? (
               <div style={{ color: 'var(--muted)', fontSize: 13 }}>No active issues yet.</div>
             ) : recentIssues.map(txn => (
-              <div key={txn.id} style={{ border: '1px solid rgba(0,0,0,0.08)', borderRadius: 12, padding: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div key={txn.id} className="flex-item-responsive" style={{ border: '1px solid rgba(0,0,0,0.08)', borderRadius: 12, padding: 12 }}>
                 <div>
                   <div style={{ fontSize: 14, fontWeight: 700 }}>{txn.book}</div>
                   <div style={{ fontSize: 12, color: 'var(--muted)' }}>{txn.member} · {txn.issueDate} · Due {txn.dueDate}</div>

@@ -110,7 +110,7 @@ export default function IssueReturn({ books, setBooks, members, txns, setTxns, a
             ) : (
               <div style={{ display: 'grid', gap: 10 }}>
                 {recentIssues.map(t => (
-                  <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid rgba(0,0,0,0.06)', padding: 10, borderRadius: 8 }}>
+                  <div key={t.id} className="flex-item-responsive" style={{ border: '1px solid rgba(0,0,0,0.06)', padding: 10, borderRadius: 8 }}>
                     <div>
                       <div style={{ fontWeight: 700 }}>{t.book}</div>
                       <div style={{ fontSize: 12, color: 'var(--muted)' }}>{t.member} · {t.issueDate} · Due {t.dueDate}</div>
@@ -132,29 +132,31 @@ export default function IssueReturn({ books, setBooks, members, txns, setTxns, a
         <>
           <div className="sbar" style={{ maxWidth: 300, marginBottom: 14 }}><Icon n="search" s={14} /><input placeholder="Search book or member…" value={q} onChange={e => setQ(e.target.value)} /></div>
           <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-            <table className="tbl">
-              <thead><tr><th>Book & Member</th><th>Issued</th><th>Due Date</th><th>Status</th><th>Action</th></tr></thead>
-              <tbody>
-                {actTx.map(t => {
-                  const fine = calcFine(t.dueDate);
-                  const st = liveStatus(t as any);
-                  return (
-                    <tr key={t.id}>
-                      <td><div style={{ fontWeight: 600 }}>{t.book}</div><div style={{ fontSize: 11, color: "var(--muted)" }}>{t.member}</div></td>
-                      <td>{t.issueDate}</td>
-                      <td>
-                        {t.dueDate}
-                        {fine > 0 && <div className="fine-live" style={{ marginTop: 4 }}>+ ₹{fine} fine</div>}
-                      </td>
-                      <td><span className={`badge ${st === "Overdue" ? "br" : "by"}`}>{st}</span></td>
-                      <td>
-                        <button className="btn bs bsm" onClick={() => returnB(t)}><Icon n="repeat" s={13} /> Process Return</button>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+            <div className="tw" style={{ border: "none", borderRadius: 0 }}>
+              <table className="tbl">
+                <thead><tr><th>Book & Member</th><th>Issued</th><th>Due Date</th><th>Status</th><th>Action</th></tr></thead>
+                <tbody>
+                  {actTx.map(t => {
+                    const fine = calcFine(t.dueDate);
+                    const st = liveStatus(t as any);
+                    return (
+                      <tr key={t.id}>
+                        <td><div style={{ fontWeight: 600 }}>{t.book}</div><div style={{ fontSize: 11, color: "var(--muted)" }}>{t.member}</div></td>
+                        <td>{t.issueDate}</td>
+                        <td>
+                          {t.dueDate}
+                          {fine > 0 && <div className="fine-live" style={{ marginTop: 4 }}>+ ₹{fine} fine</div>}
+                        </td>
+                        <td><span className={`badge ${st === "Overdue" ? "br" : "by"}`}>{st}</span></td>
+                        <td>
+                          <button className="btn bs bsm" onClick={() => returnB(t)}><Icon n="repeat" s={13} /> Process Return</button>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         </>
       )}
