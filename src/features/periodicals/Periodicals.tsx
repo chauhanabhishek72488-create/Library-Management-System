@@ -200,32 +200,32 @@ export default function Periodicals({ addToast, isAdmin = false }: PeriodicalsPr
             <tbody>
               {filteredNp.map(n => (
                 <tr key={n.id}>
-                  <td>
+                  <td data-label="Accession/Class">
                     <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                       <span className="acc-no">{n.accessionNo}</span>
                       <span style={{ fontSize: 10, fontFamily: "monospace", color: "var(--a2)" }}>{n.classificationNo}</span>
                     </div>
                   </td>
-                  <td>
+                  <td data-label="Newspaper">
                     <div style={{ fontWeight: 600, fontSize: 14 }}>{n.emoji} {n.name}</div>
                     <div style={{ fontSize: 11, color: "var(--muted)" }}>{n.sectionCount} Sections</div>
                   </td>
-                  <td>
+                  <td data-label="Publisher/Lang">
                     <div>{n.publisher}</div>
                     <div style={{ fontSize: 11, color: "var(--muted)" }}>Lang: {n.language}</div>
                   </td>
-                  <td>
+                  <td data-label="Edition/Freq">
                     <span className="badge bb">{n.edition}</span>
                     <span className="badge by" style={{ marginLeft: 4 }}>{n.frequency}</span>
                   </td>
-                  <td style={{ fontFamily: "monospace", fontSize: 12 }}>{n.date}</td>
-                  <td>{n.shelf}</td>
-                  <td>
+                  <td data-label="Date" style={{ fontFamily: "monospace", fontSize: 12 }}>{n.date}</td>
+                  <td data-label="Shelf">{n.shelf}</td>
+                  <td data-label="Status">
                     <span className={`badge ${n.available > 0 ? "bg" : "br"}`}>
                       {n.available} / {n.copies} Copies
                     </span>
                   </td>
-                  <td className="no-print" style={{ textAlign: "right" }}>
+                  <td className="no-print" data-label="Actions" style={{ textAlign: "right" }}>
                     <div style={{ display: "flex", gap: 5, justifyContent: "flex-end" }}>
                       <button className="btn bs bsm" onClick={() => setPrintItem({ title: n.name, accessionNo: n.accessionNo, classificationNo: n.classificationNo, publisher: n.publisher, date: n.date, shelf: n.shelf, type: "NEWSPAPER SLIP" })}>
                         <Icon n="printer" s={11} /> Print
@@ -263,32 +263,32 @@ export default function Periodicals({ addToast, isAdmin = false }: PeriodicalsPr
             <tbody>
               {filteredMag.map(m => (
                 <tr key={m.id}>
-                  <td>
+                  <td data-label="Accession/Class">
                     <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                       <span className="acc-no">{m.accessionNo}</span>
                       <span style={{ fontSize: 10, fontFamily: "monospace", color: "var(--a2)" }}>{m.classificationNo}</span>
                     </div>
                   </td>
-                  <td>
+                  <td data-label="Magazine">
                     <div style={{ fontWeight: 600, fontSize: 14 }}>{m.emoji} {m.title}</div>
                     <div style={{ fontSize: 11, color: "var(--muted)" }}>{m.monthYear}</div>
                   </td>
-                  <td>
+                  <td data-label="Publisher/ISSN">
                     <div>{m.publisher}</div>
                     <div style={{ fontSize: 11, fontFamily: "monospace", color: "var(--muted)" }}>ISSN: {m.issn || "N/A"}</div>
                   </td>
-                  <td>
+                  <td data-label="Issue/Vol">
                     <div style={{ fontWeight: 600, fontSize: 12 }}>{m.issueNo}</div>
                     <div style={{ fontSize: 10, color: "var(--muted)" }}>Vol: {m.volumeNo || "1"}</div>
                   </td>
-                  <td><span className="badge by">{m.category}</span></td>
-                  <td>{m.shelf}</td>
-                  <td>
+                  <td data-label="Category"><span className="badge by">{m.category}</span></td>
+                  <td data-label="Shelf">{m.shelf}</td>
+                  <td data-label="Copies">
                     <span className={`badge ${m.available > 0 ? "bg" : "br"}`}>
                       {m.available} / {m.copies} avail.
                     </span>
                   </td>
-                  <td className="no-print" style={{ textAlign: "right" }}>
+                  <td className="no-print" data-label="Actions" style={{ textAlign: "right" }}>
                     <div style={{ display: "flex", gap: 5, justifyContent: "flex-end" }}>
                       <button className="btn bs bsm" onClick={() => setPrintItem({ title: m.title, accessionNo: m.accessionNo, classificationNo: m.classificationNo, publisher: m.publisher, issueNo: m.issueNo, issn: m.issn, shelf: m.shelf, category: m.category, type: "MAGAZINE SLIP" })}>
                         <Icon n="printer" s={11} /> Print

@@ -155,7 +155,7 @@ export default function Articles({ addToast, isAdmin = false }: ArticlesProps) {
           <tbody>
             {filtered.map(a => (
               <tr key={a.id}>
-                <td>
+                <td data-label="Accession/Class">
                   <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                     <span className="acc-no">{a.accessionNo}</span>
                     <span style={{ fontSize: 10, fontFamily: "monospace", color: "var(--a2)" }}>
@@ -163,13 +163,13 @@ export default function Articles({ addToast, isAdmin = false }: ArticlesProps) {
                     </span>
                   </div>
                 </td>
-                <td>
+                <td data-label="Title">
                   <div style={{ fontWeight: 600, fontSize: 13.5, maxWidth: 300, lineHeight: 1.3 }}>
                     {a.emoji} {a.title}
                   </div>
                   <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>Pub Date: {a.publicationDate}</div>
                 </td>
-                <td>
+                <td data-label="Authors">
                   <div style={{ fontWeight: 600, fontSize: 12.5, color: "var(--text)" }}>
                     {a.authors.join(" • ")}
                   </div>
@@ -177,20 +177,20 @@ export default function Articles({ addToast, isAdmin = false }: ArticlesProps) {
                     {a.authors.length} Author(s)
                   </div>
                 </td>
-                <td>
+                <td data-label="Journal/Pub">
                   <div style={{ fontWeight: 600, fontSize: 12 }}>{a.journalName}</div>
                   <div style={{ fontSize: 10, color: "var(--muted)" }}>
                     {a.volumeNo ? `Vol ${a.volumeNo}` : ''} {a.issueNo ? `Issue ${a.issueNo}` : ''}
                   </div>
                 </td>
-                <td>
+                <td data-label="DOI/Pages">
                   <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--a3)" }}>{a.doi || "N/A"}</div>
                   <div style={{ fontSize: 10, color: "var(--muted)" }}>pp. {a.pages || "N/A"}</div>
                 </td>
-                <td>
+                <td data-label="Subject">
                   <span className="badge by">{a.subject}</span>
                 </td>
-                <td className="no-print" style={{ textAlign: "right" }}>
+                <td className="no-print" data-label="Actions" style={{ textAlign: "right" }}>
                   <div style={{ display: "flex", gap: 5, justifyContent: "flex-end" }}>
                     <button 
                       className="btn bs bsm" 

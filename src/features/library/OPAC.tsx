@@ -193,7 +193,7 @@ export default function OPAC({ books, reservations, setReservations, addToast, r
                 </div>
               </div>
               
-              <div className="g g2" style={{ gridTemplateColumns: "1fr 1fr", margin: "18px 0", gap: 10 }}>
+              <div className="grid-form-responsive" style={{ margin: "18px 0", gap: 10 }}>
                 <div style={{ padding: 10, background: "rgba(255,255,255,.03)", borderRadius: 8 }}>
                   <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 2 }}>Accession No.</div>
                   <div style={{ fontWeight: 700, fontFamily: "monospace", color: "var(--a3)" }}>{showD.accessionNo}</div>

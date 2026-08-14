@@ -115,7 +115,7 @@ export default function IssueReturn({ books, setBooks, members, txns, setTxns, a
                       <div style={{ fontWeight: 700 }}>{t.book}</div>
                       <div style={{ fontSize: 12, color: 'var(--muted)' }}>{t.member} · {t.issueDate} · Due {t.dueDate}</div>
                     </div>
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                       <button className="btn bs bsm" onClick={() => renewTxn(t)} disabled={(t as any).renewed}><Icon n="clock" s={12} /> Renew</button>
                       <button className="btn bs bsm" onClick={() => returnB(t)}><Icon n="repeat" s={12} /> Return</button>
                       <span className={`badge ${t.status === 'Overdue' ? 'br' : 'by'}`} style={{ fontSize: 11, padding: '4px 8px' }}>{t.status}</span>
@@ -141,14 +141,14 @@ export default function IssueReturn({ books, setBooks, members, txns, setTxns, a
                     const st = liveStatus(t as any);
                     return (
                       <tr key={t.id}>
-                        <td><div style={{ fontWeight: 600 }}>{t.book}</div><div style={{ fontSize: 11, color: "var(--muted)" }}>{t.member}</div></td>
-                        <td>{t.issueDate}</td>
-                        <td>
+                        <td data-label="Book & Member"><div style={{ fontWeight: 600 }}>{t.book}</div><div style={{ fontSize: 11, color: "var(--muted)" }}>{t.member}</div></td>
+                        <td data-label="Issued">{t.issueDate}</td>
+                        <td data-label="Due Date">
                           {t.dueDate}
                           {fine > 0 && <div className="fine-live" style={{ marginTop: 4 }}>+ ₹{fine} fine</div>}
                         </td>
-                        <td><span className={`badge ${st === "Overdue" ? "br" : "by"}`}>{st}</span></td>
-                        <td>
+                        <td data-label="Status"><span className={`badge ${st === "Overdue" ? "br" : "by"}`}>{st}</span></td>
+                        <td data-label="Action">
                           <button className="btn bs bsm" onClick={() => returnB(t)}><Icon n="repeat" s={13} /> Process Return</button>
                         </td>
                       </tr>

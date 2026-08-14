@@ -39,12 +39,12 @@ export default function Reservations({ reservations, setReservations, books, mem
           <tbody>
             {reservations.map(r => (
               <tr key={r.id}>
-                <td><div style={{ fontWeight: 600 }}>{r.memberName}</div></td>
-                <td>{r.bookTitle}</td>
-                <td>{r.date}</td>
-                <td><span className={r.status === "Active" ? "acc-no" : ""}>{r.expiresDate}</span></td>
-                <td><span className={`badge ${r.status === "Active" ? "by" : r.status === "Cancelled" ? "br" : "bg"}`}>{r.status}</span></td>
-                <td>
+                <td data-label="Member"><div style={{ fontWeight: 600 }}>{r.memberName}</div></td>
+                <td data-label="Book">{r.bookTitle}</td>
+                <td data-label="Placed">{r.date}</td>
+                <td data-label="Expires"><span className={r.status === "Active" ? "acc-no" : ""}>{r.expiresDate}</span></td>
+                <td data-label="Status"><span className={`badge ${r.status === "Active" ? "by" : r.status === "Cancelled" ? "br" : "bg"}`}>{r.status}</span></td>
+                <td data-label="Actions">
                   {r.status === "Active" && (
                     <div style={{ display: "flex", gap: 6 }}>
                       <button className="btn bg bsm" style={{ color: "var(--a3)" }} onClick={() => mngR(r.id, "Fulfilled")}><Icon n="check" s={12} /></button>
