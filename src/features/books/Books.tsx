@@ -5,6 +5,7 @@ import Stars from '../../components/ui/Stars';
 import PrintModal from '../../components/ui/PrintModal';
 import { Book } from '../../types';
 import { CATS, getNextAccN } from '../../data/mockData';
+import { formatBookQR } from '../../utils/qrHelper';
 
 interface BooksProps {
   books: Book[];
@@ -263,7 +264,7 @@ export default function Books({ books, setBooks, addToast }: BooksProps) {
                   <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 4 }}>{showQR.author} · {showQR.category}</div>
                   <span className="acc-no">{showQR.accessionNo}</span>
                   <div style={{ display: "flex", justifyContent: "center", margin: "14px 0" }}>
-                    <div className="qrbox" style={{ width: 130, height: 130 }}><QRCode data={showQR.accessionNo} size={120} color="#000" bg="#fff" /></div>
+                    <div className="qrbox" style={{ width: 130, height: 130 }}><QRCode data={formatBookQR(showQR)} size={120} color="#000" bg="#fff" /></div>
                   </div>
                   <div style={{ fontSize: 11, color: "var(--muted)" }}>Shelf: {showQR.shelf} | Class: {showQR.classificationNo || "800.00"}</div>
                 </div>

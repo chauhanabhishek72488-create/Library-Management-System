@@ -5,6 +5,7 @@ import QRCode from '../../components/ui/QRCode';
 import PrintModal from '../../components/ui/PrintModal';
 import { Book, User, Reservation, Review } from '../../types';
 import { CATS } from '../../data/mockData';
+import { formatBookQR } from '../../utils/qrHelper';
 
 interface OPACProps {
   books: Book[];
@@ -166,7 +167,7 @@ export default function OPAC({ books, reservations, setReservations, addToast, r
             <div style={{ width: 240, background: `linear-gradient(135deg,${showD.available > 0 ? "rgba(69,201,160,.1)" : "rgba(224,92,92,.1)"},var(--surface2))`, display: "flex", flexDirection: "column", alignItems: "center", padding: 30 }}>
               <span style={{ fontSize: 80, marginBottom: 20 }}>{showD.emoji}</span>
               <div className="qrbox" style={{ width: 100, height: 100, marginTop: "auto" }}>
-                <QRCode data={showD.accessionNo} size={90} color="#000" bg="#fff" />
+                <QRCode data={formatBookQR(showD)} size={90} color="#000" bg="#fff" />
               </div>
               <div style={{ fontSize: 10, color: "var(--muted)", marginTop: 8, opacity: 0.8, fontFamily: "monospace" }}>{showD.accessionNo}</div>
             </div>

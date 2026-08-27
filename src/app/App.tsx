@@ -17,6 +17,7 @@ import AdminDash from '../features/admin/AdminDash';
 import Books from '../features/books/Books';
 import Members from '../features/members/Members';
 import IssueReturn from '../features/issue/IssueReturn';
+import QRIssuePage from '../features/issue/QRIssuePage';
 import OPAC from '../features/library/OPAC';
 import Reservations from '../features/library/Reservations';
 import Fines from '../features/library/Fines';
@@ -33,6 +34,7 @@ import Articles from '../features/articles/Articles';
 // UI
 import Icon from '../components/ui/Icon';
 import Toasts from '../components/ui/Toasts';
+import QRScannerModal from '../components/ui/QRScannerModal';
 
 /**
  * App component
@@ -47,16 +49,45 @@ export default function App() {
   const [dark, setDark] = useState(true);
   const [page, setPage] = useState("dashboard");
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [showQRScanner, setShowQRScanner] = useState(false);
   const [toasts, setToasts] = useState<{id: string, type: string, msg: string}[]>([]);
   
   // --- MOCK DATABASE STATE ---
   const [books, setBooks] = useState<Book[]>(BOOKS_DATA);
-  const [members, setMems] = useState<Member[]>(MEMBERS_DATA);
+  const [members, setMems] = useState<Member[]>(() => {
+    try {
+      const saved = localStorage.getItem("library_members");
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.warn("Failed to load members from localStorage", e);
+    }
+    return MEMBERS_DATA;
+  });
   const [txns, setTxns] = useState<Transaction[]>(TXNS_DATA);
   const [reservations, setReservations] = useState<Reservation[]>(RESERVATIONS_DATA);
   const [reviews, setReviews] = useState<Record<string, Review[]>>(REVIEWS_INIT);
   const [wishlist, setWishlist] = useState<string[]>([]);
   const [notifications, setNotifications] = useState(NOTIFICATIONS_LOG);
+
+  const updateMembersState = (newMems: Member[] | ((prev: Member[]) => Member[])) => {
+    setMems(prev => {
+      const next = typeof newMems === "function" ? newMems(prev) : newMems;
+      try {
+        localStorage.setItem("library_members", JSON.stringify(next));
+      } catch (e) {
+        console.warn("Failed to save members to localStorage", e);
+      }
+      return next;
+    });
+  };
+
+  const handleRegisterMember = (newMember: Member) => {
+    updateMembersState(prev => {
+      const exists = prev.some(m => m.memberId === newMember.memberId || m.email === newMember.email);
+      if (exists) return prev.map(m => (m.memberId === newMember.memberId || m.email === newMember.email) ? { ...m, ...newMember } : m);
+      return [newMember, ...prev];
+    });
+  };
 
   useEffect(() => {
     if (dark) {
@@ -114,7 +145,17 @@ export default function App() {
     const unsubMems = onSnapshot(collection(db, "members"), (snapshot) => {
       const list: Member[] = [];
       snapshot.forEach(doc => list.push({ id: doc.id, ...doc.data() } as Member));
-      if (list.length > 0) setMems(list);
+      if (list.length > 0) {
+        updateMembersState(prev => {
+          const map = new Map<string, Member>();
+          list.forEach(m => map.set(m.memberId || m.id, m));
+          prev.forEach(m => {
+            const key = m.memberId || m.id;
+            if (!map.has(key)) map.set(key, m);
+          });
+          return Array.from(map.values());
+        });
+      }
     }, (err) => console.warn("Firestore members snapshot error:", err));
 
     const unsubTxns = onSnapshot(collection(db, "transactions"), (snapshot) => {
@@ -174,7 +215,7 @@ export default function App() {
   // If no user is logged in, restrict access and only render the AuthPage (Login Screen)
   if(!user) return (
     <div className={dark ? "" : "lm"} style={{ background: "var(--bg)", color: "var(--text)", minHeight: "100vh" }}>
-      <AuthPage onLogin={login} />
+      <AuthPage onLogin={login} onRegisterMember={handleRegisterMember} />
       <Toasts list={toasts as any} />
     </div>
   );
@@ -190,7 +231,8 @@ export default function App() {
       {id:"periodicals", l:"Newspapers & Magazines", ic:"newspaper"}, 
       {id:"articles", l:"Articles Column", ic:"fileText"}, 
       {id:"members", l:"Members", ic:"users"}, 
-      {id:"issue", l:"Issue & Return", ic:"refresh"}
+      {id:"issue", l:"Issue & Return", ic:"refresh"},
+      {id:"qrscan", l:"QR Scan Issue", ic:"scan"}
     ]},
     {s: "Services", items: [{id:"opac", l:"OPAC Catalog", ic:"opac"}, {id:"reservations", l:"Reservations", ic:"bookmark", b:reservations.filter(r=>r.status==="Active").length}, {id:"fines", l:"Fines & Payments", ic:"dollar"}, {id:"notif", l:"Notifications", ic:"sms", b:notifications.filter(n=>!n.read).length}]},
     {s: "Insights", items: [{id:"reports", l:"Reports & Analytics", ic:"pieChart"}]},
@@ -224,7 +266,7 @@ export default function App() {
    */
   const renderPage = () => {
     if (!isAdmin) {
-      if (page === "dashboard") return <UserDash user={user} books={books} txns={txns} wishlist={wishlist as any} setPage={setPage} />;
+      if (page === "dashboard") return <UserDash user={user} members={members} books={books} txns={txns} wishlist={wishlist as any} setPage={setPage} />;
       if (page === "opac") return <OPAC books={books} reservations={reservations} setReservations={setReservations} addToast={addToast} reviews={reviews} setReviews={setReviews} wishlist={wishlist} setWishlist={setWishlist} user={user} />;
       if (page === "periodicals") return <Periodicals addToast={addToast} isAdmin={false} />;
       if (page === "articles") return <Articles addToast={addToast} isAdmin={false} />;
@@ -232,7 +274,7 @@ export default function App() {
       if (page === "ai") return <AIRecommender user={user} txns={txns} books={books} addToast={addToast} />;
       if (page === "notif") return <NotificationsPage members={members} txns={txns} reservations={reservations} addToast={addToast} logs={notifications} setLogs={setNotifications} />;
       if (page === "settings") return <Settings user={user} dark={dark} setDark={setDark} addToast={addToast} />;
-      return <UserDash user={user} books={books} txns={txns} wishlist={wishlist as any} setPage={setPage} />;
+      return <UserDash user={user} members={members} books={books} txns={txns} wishlist={wishlist as any} setPage={setPage} />;
     }
     
     // Admin Routes
@@ -242,6 +284,7 @@ export default function App() {
     if (page === "articles") return <Articles addToast={addToast} isAdmin={true} />;
     if (page === "members") return <Members members={members} setMembers={setMems} addToast={addToast} />;
     if (page === "issue") return <IssueReturn books={books} setBooks={setBooks} members={members} txns={txns} setTxns={setTxns} addToast={addToast} />;
+    if (page === "qrscan") return <QRIssuePage books={books} setBooks={setBooks} members={members} txns={txns} setTxns={setTxns} addToast={addToast} />;
     if (page === "opac") return <OPAC books={books} reservations={reservations} setReservations={setReservations} addToast={addToast} reviews={reviews} setReviews={setReviews} wishlist={wishlist} setWishlist={setWishlist} user={user} />;
     if (page === "reservations") return <Reservations reservations={reservations} setReservations={setReservations} books={books} members={members} addToast={addToast} />;
     if (page === "fines") return <Fines txns={txns} addToast={addToast} />;
@@ -323,7 +366,15 @@ export default function App() {
             </button>
             <div className="tbtitle">{label}</div>
             <div className="sbar desktop-sbar"><Icon n="search" s={14} /><input placeholder="Quick search…" /></div>
-            <div style={{ display: "flex", gap: 7 }}>
+            <div style={{ display: "flex", gap: 7, alignItems: "center" }}>
+              <button 
+                className="btn bs bsm" 
+                onClick={() => setShowQRScanner(true)} 
+                title="Scan QR Code with Camera"
+                style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 10px" }}
+              >
+                <Icon n="qr" s={14} /> <span className="desktop-sbar">Scan QR</span>
+              </button>
               <div className="ibtn" onClick={() => { setPage("notif"); setMobileOpen(false); }} style={{ position: "relative" }}><Icon n="bell" />{totalBadge > 0 && <div className="nd" />}</div>
               <div className="ibtn" onClick={() => setDark(!dark)}><Icon n={dark ? "sun" : "moon"} /></div>
               <div className="ibtn" onClick={() => { setPage("settings"); setMobileOpen(false); }}><Icon n="settings" /></div>
@@ -333,6 +384,9 @@ export default function App() {
         </main>
       </div>
       <Toasts list={toasts as any} />
+      {showQRScanner && (
+        <QRScannerModal onClose={() => setShowQRScanner(false)} />
+      )}
     </div>
   );
 

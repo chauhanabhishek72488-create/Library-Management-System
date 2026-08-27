@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import Icon from '../../components/ui/Icon';
 import { ID_TYPES } from '../../data/mockData';
-import { User } from '../../types';
+import { User, Member } from '../../types';
 
 // Firebase
 import { auth, db } from '../../utils/firebase';
@@ -10,6 +10,7 @@ import { doc, setDoc } from 'firebase/firestore';
 
 interface AuthPageProps {
   onLogin: (u: User) => void;
+  onRegisterMember?: (m: Member) => void;
 }
 
 /**
@@ -17,7 +18,7 @@ interface AuthPageProps {
  * Handles the Sign In and Registration for both Users and Admins.
  * Also features an animated blob background!
  */
-export default function AuthPage({ onLogin }: AuthPageProps) {
+export default function AuthPage({ onLogin, onRegisterMember }: AuthPageProps) {
   // --- UI/AUTH STATE ---
   const [mode, setMode] = useState("signin"); // Tracks if user is signing in or signing up
   const [form, setForm] = useState({ name: "", email: "", password: "", confirm: "", phone: "", memberType: "Student", idType: "College ID", idNumber: "" });
@@ -31,6 +32,33 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
   /** Helper to quickly update one specific field in the form state */
   const upd = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => 
     setForm(f => ({ ...f, [k]: e.target.value }));
+
+  /** Helper to create member object and pass to parent handler */
+  const createAndRegisterMember = (uid: string, memberId: string): Member => {
+    const displayName = form.name || form.email.split("@")[0];
+    const initials = displayName.split(" ").filter(Boolean).map(x => x[0]).join("").toUpperCase().slice(0, 2) || "U";
+    const newMember: Member = {
+      id: uid,
+      name: displayName,
+      email: form.email,
+      phone: form.phone || "N/A",
+      type: form.memberType,
+      memberType: form.memberType,
+      memberId,
+      expiry: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split("T")[0],
+      booksIssued: 0,
+      initials,
+      avatar: initials,
+      status: "Active",
+      idType: form.idType || "College ID",
+      idNumber: form.idNumber || "N/A",
+      registrationDate: new Date().toISOString().split("T")[0]
+    };
+    if (onRegisterMember) {
+      onRegisterMember(newMember);
+    }
+    return newMember;
+  };
 
   /**
    * Main submit handler for forms. 
@@ -50,13 +78,19 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
     const performFallbackLogin = () => {
       const emailName = form.email.split("@")[0];
       const displayName = isEmailAdmin ? "System Admin" : (form.name || emailName.charAt(0).toUpperCase() + emailName.slice(1));
+      const generatedMemberId = isEmailAdmin ? undefined : "LIB-" + Date.now().toString().slice(-5);
+      
+      if (!isEmailAdmin && mode === "signup") {
+        createAndRegisterMember("u-" + Date.now(), generatedMemberId!);
+      }
+
       const fallbackUser: User = {
         id: "u-" + Date.now(),
         name: displayName,
         email: form.email,
         role: isEmailAdmin ? "admin" : "user",
         avatar: displayName.substring(0, 2).toUpperCase(),
-        memberId: isEmailAdmin ? undefined : "LIB-" + Date.now().toString().slice(-5),
+        memberId: generatedMemberId,
         adminId: isEmailAdmin ? "ADM-" + Date.now().toString().slice(-3) : undefined,
       };
       setLoading(false);
@@ -94,23 +128,13 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
           
           if (!isEmailAdmin) {
             const memberId = "LIB-" + user.uid.substring(0, 5).toUpperCase();
-            const initial = form.name.split(" ").map(x => x[0]).join("").toUpperCase();
+            const newMem = createAndRegisterMember(user.uid, memberId);
             
-            await setDoc(doc(db, "members", memberId), {
-              id: user.uid,
-              name: form.name,
-              email: form.email,
-              phone: form.phone,
-              type: form.memberType,
-              memberId,
-              expiry: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split("T")[0],
-              booksIssued: 0,
-              initials: initial,
-              status: "Active",
-              idType: form.idType,
-              idNumber: form.idNumber,
-              registrationDate: new Date().toISOString().split("T")[0]
-            });
+            try {
+              await setDoc(doc(db, "members", memberId), newMem);
+            } catch (err) {
+              console.warn("Firestore member setDoc failed:", err);
+            }
           }
           
           setLoading(false);

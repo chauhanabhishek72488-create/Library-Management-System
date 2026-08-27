@@ -1,6 +1,7 @@
 import React from 'react';
 import Icon from './Icon';
 import QRCode from './QRCode';
+import { formatItemQR } from '../../utils/qrHelper';
 
 interface PrintItemData {
   title?: string;
@@ -119,7 +120,7 @@ export default function PrintModal({ item, onClose }: PrintModalProps) {
 
               {/* QR Code and Tag Box */}
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", borderLeft: "1px dashed #d1d5db", paddingLeft: "14px" }}>
-                <QRCode data={item.accessionNo} size={88} color="#000" bg="#fff" />
+                <QRCode data={formatItemQR(item)} size={88} color="#000" bg="#fff" />
                 <div style={{ fontSize: "9px", color: "#6b7280", marginTop: "4px" }}>SCAN FOR DETAILS</div>
               </div>
             </div>
