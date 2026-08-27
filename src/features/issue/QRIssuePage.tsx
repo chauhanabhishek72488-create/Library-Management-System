@@ -323,7 +323,7 @@ export default function QRIssuePage({ books, setBooks, members, txns, setTxns, a
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
                 <div className="av" style={{ background: 'linear-gradient(135deg,var(--accent),#9a7438)', width: 40, height: 40, fontSize: 16 }}>
-                  {resolvedMember.avatar || resolvedMember.initials || resolvedMember.name.slice(0, 2).toUpperCase()}
+                  {resolvedMember.avatar || (resolvedMember as any).initials || resolvedMember.name.slice(0, 2).toUpperCase()}
                 </div>
                 <div>
                   <div style={{ fontWeight: 700, fontSize: 14 }}>{resolvedMember.name}</div>
@@ -332,9 +332,9 @@ export default function QRIssuePage({ books, setBooks, members, txns, setTxns, a
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 5, fontSize: 12, marginBottom: 10 }}>
                 <div><strong>ID:</strong> <code style={{ color: 'var(--accent)', fontSize: 11 }}>{resolvedMember.memberId}</code></div>
-                <div><strong>Type:</strong> {resolvedMember.memberType || resolvedMember.type}</div>
+                <div><strong>Type:</strong> {(resolvedMember as any).memberType || (resolvedMember as any).type}</div>
                 <div><strong>Status:</strong> <span className={`badge ${resolvedMember.status === 'Active' ? 'bg' : 'br'}`} style={{ fontSize: 10, padding: '1px 6px' }}>{resolvedMember.status}</span></div>
-                <div><strong>Phone:</strong> {resolvedMember.phone || 'N/A'}</div>
+                <div><strong>Phone:</strong> {(resolvedMember as any).phone || 'N/A'}</div>
               </div>
               <button className="btn bs bsm" onClick={() => setMemberRaw(null)} style={{ width: '100%' }}>
                 <Icon n="refresh" s={11} /> Re-Scan Member
@@ -417,7 +417,7 @@ export default function QRIssuePage({ books, setBooks, members, txns, setTxns, a
               <div style={{ background: 'rgba(69,201,160,.06)', border: '1px solid rgba(69,201,160,.2)', borderRadius: 10, padding: 14, marginBottom: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <div className="av" style={{ background: 'linear-gradient(135deg,var(--accent),#9a7438)', width: 38, height: 38, fontSize: 14 }}>
-                    {resolvedMember.avatar || resolvedMember.initials || resolvedMember.name.slice(0, 2).toUpperCase()}
+                    {resolvedMember.avatar || (resolvedMember as any).initials || resolvedMember.name.slice(0, 2).toUpperCase()}
                   </div>
                   <div>
                     <div style={{ fontWeight: 700, fontSize: 14 }}>{resolvedMember.name}</div>
