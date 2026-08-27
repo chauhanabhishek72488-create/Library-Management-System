@@ -11,49 +11,36 @@ interface QRIssuePageProps {
   addToast: (type: string, msg: string) => void;
 }
 
-/** Parse a Member ID (e.g. LIB-2024-001) from a scanned QR text payload */
-function extractMemberId(raw: string): string | null {
-  const s = raw.trim();
-  // Try "Member ID : LIB-XXX" format
-  const match = s.match(/Member\s+ID\s*[:\s]+([A-Z0-9a-z_-]{4,})/i);
-  if (match) return match[1].trim();
-  // Try raw "LIB-XXXXX"
-  const direct = s.match(/\bLIB-[A-Z0-9_-]+/i);
-  if (direct) return direct[0].trim();
-  return null;
-}
-
-/** Parse email from scanned QR payload */
-function extractEmail(raw: string): string | null {
-  const match = raw.match(/Email\s*[:\s]+([^\s\n]+@[^\s\n]+)/i);
-  return match ? match[1].trim() : null;
-}
-
-/** Parse a Book Accession No (e.g. ACC-2026-001) from a scanned QR text payload */
-function extractAccessionNo(raw: string): string | null {
-  const s = raw.trim();
-  const match = s.match(/Accession\s+No[.:]*\s*([A-Z0-9a-z_-]{4,})/i);
-  if (match) return match[1].trim();
-  const direct = s.match(/\bACC-[A-Z0-9_-]+/i);
-  if (direct) return direct[0].trim();
-  return null;
-}
-
-/** Resolve a member from QR text */
+/** Resolve a member from QR text or manual input */
 function resolveMember(raw: string, members: Member[]): Member | null {
-  const memberId = extractMemberId(raw);
-  const email = extractEmail(raw);
-  return (
-    (memberId ? members.find(m => m.memberId && m.memberId.toLowerCase() === memberId.toLowerCase()) : null) ||
-    (email ? members.find(m => m.email && m.email.toLowerCase() === email.toLowerCase()) : null) ||
-    null
+  if (!raw) return null;
+  const s = raw.toLowerCase().trim();
+  
+  // 1. Try exact match first
+  const exact = members.find(m => 
+    (m.memberId && m.memberId.toLowerCase() === s) ||
+    (m.email && m.email.toLowerCase() === s)
   );
+  if (exact) return exact;
+
+  // 2. Try includes match for complex payloads
+  return members.find(m => 
+    (m.memberId && s.includes(m.memberId.toLowerCase())) ||
+    (m.email && m.email.length > 3 && s.includes(m.email.toLowerCase()))
+  ) || null;
 }
 
-/** Resolve a book from QR text */
+/** Resolve a book from QR text or manual input */
 function resolveBook(raw: string, books: Book[]): Book | null {
-  const accNo = extractAccessionNo(raw);
-  return accNo ? books.find(b => b.accessionNo && b.accessionNo.toLowerCase() === accNo.toLowerCase()) || null : null;
+  if (!raw) return null;
+  const s = raw.toLowerCase().trim();
+
+  // 1. Try exact match first
+  const exact = books.find(b => b.accessionNo && b.accessionNo.toLowerCase() === s);
+  if (exact) return exact;
+
+  // 2. Try includes match for complex payloads
+  return books.find(b => b.accessionNo && s.includes(b.accessionNo.toLowerCase())) || null;
 }
 
 // ── Scan Complete Overlay ──────────────────────────────────────────────

@@ -46,6 +46,16 @@ export default function Members({ members, setMembers, addToast }: MembersProps)
   };
 
   /**
+   * Delete Member handler
+   */
+  const deleteMember = (mId: string) => {
+    if (window.confirm("Are you sure you want to permanently delete this member?")) {
+      setMembers(members.filter(m => m.memberId !== mId));
+      addToast("success", "Member deleted successfully!");
+    }
+  };
+
+  /**
    * Admin manual Add Member handler
    */
   const handleAddMember = () => {
@@ -138,6 +148,7 @@ export default function Members({ members, setMembers, addToast }: MembersProps)
                         ) : (
                           <button className="btn bg bsm" onClick={() => mui(m.memberId, "Active")} title="Activate" style={{ color: "var(--a3)" }}><Icon n="check" s={12} /></button>
                         )}
+                        <button className="btn bd bsm" onClick={() => deleteMember(m.memberId)} title="Delete Member" style={{ color: "var(--danger)" }}><Icon n="trash" s={12} /></button>
                       </div>
                     </td>
                   </tr>
