@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import Icon from '../../components/ui/Icon';
-import { ID_TYPES } from '../../data/mockData';
+import { ID_TYPES, MEMBERS_DATA, MOCK_USERS } from '../../data/mockData';
 import { User, Member } from '../../types';
 
 // Firebase
@@ -33,6 +33,48 @@ export default function AuthPage({ onLogin, onRegisterMember }: AuthPageProps) {
   const upd = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => 
     setForm(f => ({ ...f, [k]: e.target.value }));
 
+  /** Helper to check if an email is already registered */
+  const getRegisteredUser = (email: string): { name: string; memberId?: string; id?: string; avatar?: string } | null => {
+    const clean = email.toLowerCase().trim();
+    if (clean === "test1@gmail.com" || clean === "teat1@gmail.com") {
+      return { name: "System Admin", memberId: undefined, id: "a-test1", avatar: "SA" };
+    }
+    
+    // Check localStorage registered users list
+    try {
+      const regRaw = localStorage.getItem("library_registered_users");
+      if (regRaw) {
+        const regUsers = JSON.parse(regRaw);
+        const found = regUsers.find((u: any) => u.email && u.email.toLowerCase().trim() === clean);
+        if (found) return found;
+      }
+    } catch (e) {}
+
+    // Check localStorage members list
+    try {
+      const memRaw = localStorage.getItem("library_members");
+      if (memRaw) {
+        const mems = JSON.parse(memRaw);
+        const found = mems.find((m: any) => m.email && m.email.toLowerCase().trim() === clean);
+        if (found) return { name: found.name, memberId: found.memberId, id: found.id, avatar: found.avatar || found.initials };
+      }
+    } catch (e) {}
+
+    // Check default MEMBERS_DATA
+    const foundMem = MEMBERS_DATA.find(m => m.email.toLowerCase().trim() === clean);
+    if (foundMem) {
+      return { name: foundMem.name, memberId: foundMem.memberId, id: foundMem.id, avatar: foundMem.avatar || foundMem.initials };
+    }
+
+    // Check MOCK_USERS
+    const foundUser = MOCK_USERS.find(u => u.email.toLowerCase().trim() === clean);
+    if (foundUser) {
+      return { name: foundUser.name, memberId: foundUser.memberId, id: foundUser.id, avatar: foundUser.avatar };
+    }
+
+    return null;
+  };
+
   /** Helper to create member object and pass to parent handler */
   const createAndRegisterMember = (uid: string, memberId: string): Member => {
     const displayName = form.name || form.email.split("@")[0];
@@ -57,6 +99,14 @@ export default function AuthPage({ onLogin, onRegisterMember }: AuthPageProps) {
     if (onRegisterMember) {
       onRegisterMember(newMember);
     }
+    try {
+      const regRaw = localStorage.getItem("library_registered_users");
+      const list = regRaw ? JSON.parse(regRaw) : [];
+      if (!list.some((u: any) => u.email.toLowerCase() === form.email.toLowerCase().trim())) {
+        list.push({ email: form.email.trim(), name: displayName, memberId, id: uid, avatar: initials });
+        localStorage.setItem("library_registered_users", JSON.stringify(list));
+      }
+    } catch (e) {}
     return newMember;
   };
 
@@ -69,29 +119,60 @@ export default function AuthPage({ onLogin, onRegisterMember }: AuthPageProps) {
     if (!form.email || !form.password) { setError("Please fill all required fields."); return; }
     
     const emailClean = form.email.trim().toLowerCase();
-    const isEmailAdmin = emailClean === "test1@gmail.com" || emailClean.includes("admin") || emailClean.includes("meena");
+    const isEmailAdmin = emailClean === "test1@gmail.com" || emailClean === "teat1@gmail.com";
 
     if (mode === "signup" && !isEmailAdmin && (!form.idType || !form.idNumber)) { setError("ID proof (Aadhaar/College ID) is mandatory."); return; }
     
+    // If trying to access as admin with wrong password
+    if (isEmailAdmin && form.password !== "123456") {
+      setError("Invalid password for Admin. (Admin password: 123456)");
+      return;
+    }
+
+    // If trying to sign in with an unregistered email, demand sign up first!
+    if (mode === "signin" && !isEmailAdmin) {
+      const registered = getRegisteredUser(emailClean);
+      if (!registered) {
+        setError("This email is not registered! Please Sign Up first.");
+        return;
+      }
+    }
+
     setLoading(true);
 
     const performFallbackLogin = () => {
+      if (isEmailAdmin && form.password !== "123456") {
+        setLoading(false);
+        setError("Invalid password for Admin. (Admin password: 123456)");
+        return;
+      }
+
+      if (mode === "signin" && !isEmailAdmin) {
+        const reg = getRegisteredUser(emailClean);
+        if (!reg) {
+          setLoading(false);
+          setError("This email is not registered! Please Sign Up first.");
+          return;
+        }
+      }
+
       const emailName = form.email.split("@")[0];
-      const displayName = isEmailAdmin ? "System Admin" : (form.name || emailName.charAt(0).toUpperCase() + emailName.slice(1));
-      const generatedMemberId = isEmailAdmin ? undefined : "LIB-" + Date.now().toString().slice(-5);
+      const registeredInfo = !isEmailAdmin ? getRegisteredUser(emailClean) : null;
+      const displayName = isEmailAdmin ? "System Admin" : (registeredInfo?.name || form.name || emailName.charAt(0).toUpperCase() + emailName.slice(1));
+      const generatedMemberId = isEmailAdmin ? undefined : (registeredInfo?.memberId || "LIB-" + Date.now().toString().slice(-5));
       
       if (!isEmailAdmin && mode === "signup") {
         createAndRegisterMember("u-" + Date.now(), generatedMemberId!);
       }
 
       const fallbackUser: User = {
-        id: "u-" + Date.now(),
+        id: isEmailAdmin ? "a-test1" : (registeredInfo?.id || "u-" + Date.now()),
         name: displayName,
         email: form.email,
         role: isEmailAdmin ? "admin" : "user",
-        avatar: displayName.substring(0, 2).toUpperCase(),
+        avatar: (registeredInfo?.avatar) || displayName.substring(0, 2).toUpperCase(),
         memberId: generatedMemberId,
-        adminId: isEmailAdmin ? "ADM-" + Date.now().toString().slice(-3) : undefined,
+        adminId: isEmailAdmin ? "ADM-001" : undefined,
       };
       setLoading(false);
       onLogin(fallbackUser);
@@ -104,8 +185,13 @@ export default function AuthPage({ onLogin, onRegisterMember }: AuthPageProps) {
         })
         .catch((err) => {
           const errStr = (err?.message || "").toLowerCase();
-          if (errStr.includes("api-key") || errStr.includes("api_key") || errStr.includes("invalid") || errStr.includes("network") || errStr.includes("user-not-found") || errStr.includes("auth/")) {
-            // Fallback to local demo login
+          if (errStr.includes("api-key") || errStr.includes("api_key") || errStr.includes("invalid") || errStr.includes("network") || errStr.includes("auth/")) {
+            // Check if user is registered before fallback login
+            if (!isEmailAdmin && !getRegisteredUser(emailClean)) {
+              setLoading(false);
+              setError("This email is not registered! Please Sign Up first.");
+              return;
+            }
             performFallbackLogin();
           } else {
             setLoading(false);

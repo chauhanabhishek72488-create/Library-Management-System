@@ -43,8 +43,16 @@ import QRScannerModal from '../components/ui/QRScannerModal';
  */
 export default function App() {
   // --- APPLICATION STATE ---
-  // `user` holds who is currently logged in. If null, we show the Login page.
-  const [user, setUser] = useState<User | null>(null);
+  // `user` holds who is currently logged in. Persisted in localStorage for automatic instant login on app open.
+  const [user, setUser] = useState<User | null>(() => {
+    try {
+      const saved = localStorage.getItem("library_user_session");
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.warn("Failed to load user session from localStorage", e);
+    }
+    return null;
+  });
   // UI State for dark mode toggle, active page navigation, and mobile menu open/close
   const [dark, setDark] = useState(true);
   const [page, setPage] = useState("dashboard");
@@ -107,12 +115,12 @@ export default function App() {
         const name = fbUser.displayName || email.split("@")[0];
 
         let role: User["role"] = "user";
-        const isEmailAdmin = email.toLowerCase() === "test1@gmail.com" || email.toLowerCase().includes("admin") || email.toLowerCase().includes("meena");
+        const isEmailAdmin = email.toLowerCase() === "test1@gmail.com" || email.toLowerCase() === "teat1@gmail.com";
         try {
           const profileSnap = await getDoc(doc(db, "users", fbUser.uid));
           if (profileSnap.exists()) {
             const profileRole = profileSnap.data().role;
-            role = (profileRole === "admin" || isEmailAdmin) ? "admin" : "user";
+            role = (profileRole === "admin" && isEmailAdmin) ? "admin" : (isEmailAdmin ? "admin" : "user");
           } else {
             role = isEmailAdmin ? "admin" : "user";
           }
@@ -130,9 +138,10 @@ export default function App() {
           memberId: role === "user" ? "LIB-" + fbUser.uid.substring(0, 5).toUpperCase() : undefined,
           adminId: role === "admin" ? "ADM-" + fbUser.uid.substring(0, 3).toUpperCase() : undefined,
         };
+        try {
+          localStorage.setItem("library_user_session", JSON.stringify(loggedUser));
+        } catch (e) {}
         setUser(loggedUser);
-      } else {
-        setUser(null);
       }
     });
 
@@ -206,11 +215,28 @@ export default function App() {
     setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), 3200);
   };
 
-  // Authentication handlers
+  // Authentication handlers (persisted across refreshes)
   const login = (u: User) => {
-    setUser(u); setPage("dashboard"); addToast("success", `Welcome, ${u.name}!`);
+    try {
+      localStorage.setItem("library_user_session", JSON.stringify(u));
+    } catch (e) {
+      console.warn("Failed to save user session to localStorage", e);
+    }
+    setUser(u); 
+    setPage("dashboard"); 
+    addToast("success", `Welcome, ${u.name}!`);
   };
-  const logout = () => { auth.signOut(); setUser(null); setPage("dashboard"); };
+
+  const logout = () => { 
+    try {
+      localStorage.removeItem("library_user_session");
+    } catch (e) {
+      console.warn("Failed to remove user session from localStorage", e);
+    }
+    auth.signOut().catch(() => {}); 
+    setUser(null); 
+    setPage("dashboard"); 
+  };
 
   // If no user is logged in, restrict access and only render the AuthPage (Login Screen)
   if(!user) return (
@@ -220,8 +246,9 @@ export default function App() {
     </div>
   );
   
-  // Determine if the user is an Admin or Librarian based on their role
-  const isAdmin = user.role !== "user";
+  // ONLY test1@gmail.com / teat1@gmail.com is allowed as Admin. Every other user is strictly a Member/Student.
+  const emailLower = (user.email || "").toLowerCase().trim();
+  const isAdmin = emailLower === "test1@gmail.com" || emailLower === "teat1@gmail.com";
 
   // Sidebar link structures. Different links depending on the user type.
   const adminNav = [
@@ -367,14 +394,16 @@ export default function App() {
             <div className="tbtitle">{label}</div>
             <div className="sbar desktop-sbar"><Icon n="search" s={14} /><input placeholder="Quick search…" /></div>
             <div style={{ display: "flex", gap: 7, alignItems: "center" }}>
-              <button 
-                className="btn bs bsm" 
-                onClick={() => setShowQRScanner(true)} 
-                title="Scan QR Code with Camera"
-                style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 10px" }}
-              >
-                <Icon n="qr" s={14} /> <span className="desktop-sbar">Scan QR</span>
-              </button>
+              {isAdmin && (
+                <button 
+                  className="btn bs bsm" 
+                  onClick={() => setShowQRScanner(true)} 
+                  title="Scan QR Code with Camera"
+                  style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 10px" }}
+                >
+                  <Icon n="scan" s={14} /> <span className="desktop-sbar">Scan QR</span>
+                </button>
+              )}
               <div className="ibtn" onClick={() => { setPage("notif"); setMobileOpen(false); }} style={{ position: "relative" }}><Icon n="bell" />{totalBadge > 0 && <div className="nd" />}</div>
               <div className="ibtn" onClick={() => setDark(!dark)}><Icon n={dark ? "sun" : "moon"} /></div>
               <div className="ibtn" onClick={() => { setPage("settings"); setMobileOpen(false); }}><Icon n="settings" /></div>

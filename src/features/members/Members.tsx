@@ -30,9 +30,9 @@ export default function Members({ members, setMembers, addToast }: MembersProps)
 
   const filtered = members.filter(m => {
     const lq = q.toLowerCase();
-    return !q || 
-      m.name.toLowerCase().includes(lq) || 
-      m.memberId.toLowerCase().includes(lq) || 
+    return !q ||
+      m.name.toLowerCase().includes(lq) ||
+      m.memberId.toLowerCase().includes(lq) ||
       m.email.toLowerCase().includes(lq) ||
       (m.idNumber && m.idNumber.toLowerCase().includes(lq));
   });
@@ -93,7 +93,7 @@ export default function Members({ members, setMembers, addToast }: MembersProps)
       <div style={{ display: "flex", marginBottom: 18 }}>
         <div className="sbar" style={{ flex: 1, maxWidth: 400 }}><Icon n="search" s={14} /><input placeholder="Search name, ID, email, ID number…" value={q} onChange={e => setQ(e.target.value)} /></div>
       </div>
-      
+
       <div id="members-print-area" className="card" style={{ padding: 0, overflow: "hidden" }}>
         <div className="tw" style={{ border: "none", borderRadius: 0 }}>
           <table className="tbl">
