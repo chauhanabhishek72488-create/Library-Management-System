@@ -21,8 +21,8 @@ interface UserDashProps {
  */
 export default function UserDash({ user, members = [], books, txns, wishlist, setPage }: UserDashProps) {
   // Find full matching member record from database state to ensure 100% identical data with Admin page
-  const currentMember: Member | User = members.find(m => 
-    (user.memberId && m.memberId && m.memberId.toLowerCase() === user.memberId.toLowerCase()) || 
+  const currentMember: Member | User = members.find(m =>
+    (user.memberId && m.memberId && m.memberId.toLowerCase() === user.memberId.toLowerCase()) ||
     (m.email && user.email && m.email.toLowerCase() === user.email.toLowerCase())
   ) || user;
 
@@ -30,22 +30,22 @@ export default function UserDash({ user, members = [], books, txns, wishlist, se
 
   // Filter all transactions to only show this specific user's transactions
   const my = txns.filter(t => t.member === user.name);
-  
+
   // Filter further to find books that are STILL issued (not returned yet)
   const myI = my.filter(t => t.status !== "Returned" && !t.returnDate);
-  
+
   // Add up all live or past fines purely for this user
   const myF = my.reduce((s, t) => s + calcFine(t.dueDate, t.returnDate), 0);
-  
+
   // Detect if they have overdue books right now
   const overdue = my.filter(t => liveStatus(t as any) === "Overdue");
-  
+
   // State to refresh component every 1 minute so overdue logic/clocks are always fresh
   const [now, setNow] = useState(new Date());
 
-  useEffect(() => { 
+  useEffect(() => {
     // Setup 60-second polling interval
-    const timer = setInterval(() => setNow(new Date()), 60000); 
+    const timer = setInterval(() => setNow(new Date()), 60000);
     return () => clearInterval(timer); // Cleanup when user leaves the page
   }, []);
 
@@ -61,25 +61,33 @@ export default function UserDash({ user, members = [], books, txns, wishlist, se
               Welcome back, {user.name.split(" ")[0]}! 👋
             </div>
             <div style={{ color: "var(--muted)", fontSize: 13 }}>
-              Member ID: <code style={{ color: "var(--accent)" }}>{user.memberId || (currentMember as any).memberId}</code> · {(currentMember as any).memberType || (currentMember as any).type || user.memberType || "Student"} · Expires {(currentMember as any).expiry || "Dec 2025"}
+              Member ID: <code style={{ color: "var(--accent)", fontWeight: 700 }}>{user.memberId || (currentMember as any).memberId}</code> · {(currentMember as any).memberType || (currentMember as any).type || user.memberType || "Student"} · Expires {(currentMember as any).expiry || "Dec 2025"}
             </div>
-            {overdue.length > 0 && (
-              <div style={{ marginTop: 8, background: "rgba(224,92,92,.12)", border: "1px solid rgba(224,92,92,.3)", borderRadius: 8, padding: "7px 12px", fontSize: 12.5, color: "var(--danger)", display: "inline-flex", alignItems: "center", gap: 6 }}>
-                ⚠️ You have {overdue.length} overdue book{overdue.length > 1 ? "s" : ""}! Return immediately to stop fine accumulation.
-              </div>
-            )}
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer" }} onClick={() => setShowIDCard(true)} title="Click to view full ID Card">
-            <div className="qrbox" style={{ width: 86, height: 86, padding: 4, background: "#fff", borderRadius: 8 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <div 
+              className="qrbox" 
+              style={{ width: 86, height: 86, padding: 4, background: "#fff", borderRadius: 10, cursor: "pointer", boxShadow: "0 4px 14px rgba(0,0,0,0.25)" }} 
+              onClick={() => setShowIDCard(true)} 
+              title="Click to view full Virtual ID Card"
+            >
               <QRCode data={qrPayload} size={78} color="#000" bg="#fff" />
             </div>
-            <div style={{ fontSize: 11, color: "var(--accent)", fontWeight: 600 }}>
-              <Icon n="qr" s={12} /> View Card
+            <div>
+              <button 
+                type="button"
+                className="btn bp bsm" 
+                style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "9px 15px", fontWeight: 600, cursor: "pointer" }}
+                onClick={() => setShowIDCard(true)}
+              >
+                <Icon n="card" s={14} /> View Virtual ID Card
+              </button>
+              <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4 }}>Click to enlarge QR code & card</div>
             </div>
           </div>
         </div>
       </div>
-      
+
       <div className="g g4" style={{ marginBottom: 20 }}>
         {[
           { l: "Books Issued", v: myI.length, c: "var(--a2)", i: "📖", pg: "history" },
@@ -95,7 +103,7 @@ export default function UserDash({ user, members = [], books, txns, wishlist, se
           </div>
         ))}
       </div>
-      
+
       <div className="g g2">
         <div className="card">
           <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 17, fontWeight: 700, marginBottom: 14 }}>📖 My Issued Books</div>

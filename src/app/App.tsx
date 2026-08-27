@@ -13,6 +13,7 @@ import { User, Book, Transaction, Member, Reservation, Review } from '../types';
 // Pages
 import AuthPage from '../features/auth/AuthPage';
 import UserDash from '../features/dashboard/UserDash';
+import VirtualIDCardPage from '../features/dashboard/VirtualIDCardPage';
 import AdminDash from '../features/admin/AdminDash';
 import Books from '../features/books/Books';
 import Members from '../features/members/Members';
@@ -43,23 +44,15 @@ import QRScannerModal from '../components/ui/QRScannerModal';
  */
 export default function App() {
   // --- APPLICATION STATE ---
-  // `user` holds who is currently logged in. Persisted in localStorage for automatic instant login on app open.
-  const [user, setUser] = useState<User | null>(() => {
-    try {
-      const saved = localStorage.getItem("library_user_session");
-      if (saved) return JSON.parse(saved);
-    } catch (e) {
-      console.warn("Failed to load user session from localStorage", e);
-    }
-    return null;
-  });
+  // `user` holds who is currently logged in. If null, we show the Login page.
+  const [user, setUser] = useState<User | null>(null);
   // UI State for dark mode toggle, active page navigation, and mobile menu open/close
   const [dark, setDark] = useState(true);
   const [page, setPage] = useState("dashboard");
   const [mobileOpen, setMobileOpen] = useState(false);
   const [showQRScanner, setShowQRScanner] = useState(false);
-  const [toasts, setToasts] = useState<{id: string, type: string, msg: string}[]>([]);
-  
+  const [toasts, setToasts] = useState<{ id: string, type: string, msg: string }[]>([]);
+
   // --- MOCK DATABASE STATE ---
   const [books, setBooks] = useState<Book[]>(BOOKS_DATA);
   const [members, setMems] = useState<Member[]>(() => {
@@ -114,21 +107,10 @@ export default function App() {
         const email = fbUser.email || "";
         const name = fbUser.displayName || email.split("@")[0];
 
-        let role: User["role"] = "user";
-        const isEmailAdmin = email.toLowerCase() === "test1@gmail.com" || email.toLowerCase() === "teat1@gmail.com";
-        try {
-          const profileSnap = await getDoc(doc(db, "users", fbUser.uid));
-          if (profileSnap.exists()) {
-            const profileRole = profileSnap.data().role;
-            role = (profileRole === "admin" && isEmailAdmin) ? "admin" : (isEmailAdmin ? "admin" : "user");
-          } else {
-            role = isEmailAdmin ? "admin" : "user";
-          }
-        } catch {
-          role = isEmailAdmin ? "admin" : "user";
-        }
+        const isEmailAdmin = email.toLowerCase().trim() === "test1@gmail.com" || email.toLowerCase().trim() === "teat1@gmail.com";
+        const role: User["role"] = isEmailAdmin ? "admin" : "user";
         const avatar = name.split(" ").map(x => x[0]).join("").toUpperCase();
-        
+
         const loggedUser: User = {
           id: fbUser.uid,
           name,
@@ -136,12 +118,14 @@ export default function App() {
           role,
           avatar,
           memberId: role === "user" ? "LIB-" + fbUser.uid.substring(0, 5).toUpperCase() : undefined,
-          adminId: role === "admin" ? "ADM-" + fbUser.uid.substring(0, 3).toUpperCase() : undefined,
+          adminId: role === "admin" ? "ADM-001" : undefined,
         };
         try {
           localStorage.setItem("library_user_session", JSON.stringify(loggedUser));
         } catch (e) {}
         setUser(loggedUser);
+      } else {
+        // If not authenticated in firebase, keep local session if valid
       }
     });
 
@@ -211,73 +195,61 @@ export default function App() {
    */
   const addToast = (type: string, msg: string) => {
     const id = Date.now().toString();
-    setToasts(t => [...t, {id, type: type as any, msg}]);
+    setToasts(t => [...t, { id, type: type as any, msg }]);
     setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), 3200);
   };
 
-  // Authentication handlers (persisted across refreshes)
+  // Authentication handlers
   const login = (u: User) => {
-    try {
-      localStorage.setItem("library_user_session", JSON.stringify(u));
-    } catch (e) {
-      console.warn("Failed to save user session to localStorage", e);
-    }
-    setUser(u); 
-    setPage("dashboard"); 
-    addToast("success", `Welcome, ${u.name}!`);
+    setUser(u); setPage("dashboard"); addToast("success", `Welcome, ${u.name}!`);
   };
-
-  const logout = () => { 
-    try {
-      localStorage.removeItem("library_user_session");
-    } catch (e) {
-      console.warn("Failed to remove user session from localStorage", e);
-    }
-    auth.signOut().catch(() => {}); 
-    setUser(null); 
-    setPage("dashboard"); 
-  };
+  const logout = () => { auth.signOut(); setUser(null); setPage("dashboard"); };
 
   // If no user is logged in, restrict access and only render the AuthPage (Login Screen)
-  if(!user) return (
+  if (!user) return (
     <div className={dark ? "" : "lm"} style={{ background: "var(--bg)", color: "var(--text)", minHeight: "100vh" }}>
       <AuthPage onLogin={login} onRegisterMember={handleRegisterMember} />
       <Toasts list={toasts as any} />
     </div>
   );
-  
+
   // ONLY test1@gmail.com / teat1@gmail.com is allowed as Admin. Every other user is strictly a Member/Student.
-  const emailLower = (user.email || "").toLowerCase().trim();
-  const isAdmin = emailLower === "test1@gmail.com" || emailLower === "teat1@gmail.com";
+  const emailClean = (user.email || "").toLowerCase().trim();
+  const isAdmin = emailClean === "test1@gmail.com" || emailClean === "teat1@gmail.com";
 
   // Sidebar link structures. Different links depending on the user type.
   const adminNav = [
-    {s: "Management", items: [
-      {id:"dashboard", l:"Dashboard", ic:"home"}, 
-      {id:"books", l:"Book Catalog", ic:"book"}, 
-      {id:"periodicals", l:"Newspapers & Magazines", ic:"newspaper"}, 
-      {id:"articles", l:"Articles Column", ic:"fileText"}, 
-      {id:"members", l:"Members", ic:"users"}, 
-      {id:"issue", l:"Issue & Return", ic:"refresh"},
-      {id:"qrscan", l:"QR Scan Issue", ic:"scan"}
-    ]},
-    {s: "Services", items: [{id:"opac", l:"OPAC Catalog", ic:"opac"}, {id:"reservations", l:"Reservations", ic:"bookmark", b:reservations.filter(r=>r.status==="Active").length}, {id:"fines", l:"Fines & Payments", ic:"dollar"}, {id:"notif", l:"Notifications", ic:"sms", b:notifications.filter(n=>!n.read).length}]},
-    {s: "Insights", items: [{id:"reports", l:"Reports & Analytics", ic:"pieChart"}]},
-    {s: "System", items: [{id:"access", l:"Access Control", ic:"shield"}, {id:"settings", l:"Settings", ic:"settings"}]},
+    {
+      s: "Management", items: [
+        { id: "dashboard", l: "Dashboard", ic: "home" },
+        { id: "books", l: "Book Catalog", ic: "book" },
+        { id: "periodicals", l: "Newspapers & Magazines", ic: "newspaper" },
+        { id: "articles", l: "Articles Column", ic: "fileText" },
+        { id: "members", l: "Members", ic: "users" },
+        { id: "issue", l: "Issue & Return", ic: "refresh" },
+        { id: "qrscan", l: "QR Scan Issue", ic: "scan" }
+      ]
+    },
+    { s: "Services", items: [{ id: "opac", l: "OPAC Catalog", ic: "opac" }, { id: "reservations", l: "Reservations", ic: "bookmark", b: reservations.filter(r => r.status === "Active").length }, { id: "fines", l: "Fines & Payments", ic: "dollar" }, { id: "notif", l: "Notifications", ic: "sms", b: notifications.filter(n => !n.read).length }] },
+    { s: "Insights", items: [{ id: "reports", l: "Reports & Analytics", ic: "pieChart" }] },
+    { s: "System", items: [{ id: "access", l: "Access Control", ic: "shield" }, { id: "settings", l: "Settings", ic: "settings" }] },
   ];
   const userNav = [
-    {s: "My Library", items: [
-      {id:"dashboard", l:"My Dashboard", ic:"home"},
-      {id:"opac", l:"Browse Books", ic:"book"},
-      {id:"periodicals", l:"Newspapers & Magazines", ic:"newspaper"},
-      {id:"articles", l:"Articles Column", ic:"fileText"},
-      {id:"history", l:"Reading History", ic:"history", b:wishlist.length>0 ? wishlist.length : 0},
-      {id:"ai", l:"AI Recommender", ic:"ai"},
-      {id:"notif", l:"Notifications", ic:"bell", b:notifications.filter(n=>!n.read).length},
-      {id:"settings", l:"Profile & Settings", ic:"settings"},
-    ]},
+    {
+      s: "My Library", items: [
+        { id: "dashboard", l: "My Dashboard", ic: "home" },
+        { id: "idcard", l: "Virtual ID Card", ic: "card" },
+        { id: "opac", l: "Browse Books", ic: "book" },
+        { id: "periodicals", l: "Newspapers & Magazines", ic: "newspaper" },
+        { id: "articles", l: "Articles Column", ic: "fileText" },
+        { id: "history", l: "Reading History", ic: "history", b: wishlist.length > 0 ? wishlist.length : 0 },
+        { id: "ai", l: "AI Recommender", ic: "ai" },
+        { id: "notif", l: "Notifications", ic: "bell", b: notifications.filter(n => !n.read).length },
+        { id: "settings", l: "Profile & Settings", ic: "settings" },
+      ]
+    },
   ];
-  
+
   const nav = isAdmin ? adminNav : userNav;
   // Get the title label for the Header based on whatever page is active
   const label = nav.flatMap(s => s.items).find(i => i.id === page)?.l || "LibraryOS";
@@ -294,6 +266,7 @@ export default function App() {
   const renderPage = () => {
     if (!isAdmin) {
       if (page === "dashboard") return <UserDash user={user} members={members} books={books} txns={txns} wishlist={wishlist as any} setPage={setPage} />;
+      if (page === "idcard") return <VirtualIDCardPage user={user} members={members} />;
       if (page === "opac") return <OPAC books={books} reservations={reservations} setReservations={setReservations} addToast={addToast} reviews={reviews} setReviews={setReviews} wishlist={wishlist} setWishlist={setWishlist} user={user} />;
       if (page === "periodicals") return <Periodicals addToast={addToast} isAdmin={false} />;
       if (page === "articles") return <Articles addToast={addToast} isAdmin={false} />;
@@ -303,7 +276,7 @@ export default function App() {
       if (page === "settings") return <Settings user={user} dark={dark} setDark={setDark} addToast={addToast} />;
       return <UserDash user={user} members={members} books={books} txns={txns} wishlist={wishlist as any} setPage={setPage} />;
     }
-    
+
     // Admin Routes
     if (page === "dashboard") return <AdminDash books={books} members={members} txns={txns} setBooks={setBooks} setTxns={setTxns} addToast={addToast} />;
     if (page === "books") return <Books books={books} setBooks={setBooks} addToast={addToast} />;
@@ -319,12 +292,12 @@ export default function App() {
     if (page === "reports") return <Reports books={books} members={members} txns={txns} addToast={addToast} />;
     if (page === "access") return <AccessControl />;
     if (page === "settings") return <Settings user={user} dark={dark} setDark={setDark} addToast={addToast} />;
-    
+
     return <AdminDash books={books} members={members} txns={txns} />;
   };
 
   const avBg = isAdmin ? "linear-gradient(135deg,var(--danger),#b03030)" : "linear-gradient(135deg,var(--a2),var(--a3))";
-  
+
   // Gets sum of the notification badges the navigation items have.
   const totalBadge = nav.flatMap(s => s.items).reduce((s, i) => s + (i.b || 0), 0);
 
@@ -334,8 +307,8 @@ export default function App() {
       <div style={{ display: "flex", height: "100vh", overflow: "hidden" }}>
         {/* Mobile Backdrop Overlay */}
         {mobileOpen && (
-          <div 
-            className="mobile-backdrop no-print" 
+          <div
+            className="mobile-backdrop no-print"
             onClick={() => setMobileOpen(false)}
             style={{
               position: "fixed",
@@ -394,16 +367,14 @@ export default function App() {
             <div className="tbtitle">{label}</div>
             <div className="sbar desktop-sbar"><Icon n="search" s={14} /><input placeholder="Quick search…" /></div>
             <div style={{ display: "flex", gap: 7, alignItems: "center" }}>
-              {isAdmin && (
-                <button 
-                  className="btn bs bsm" 
-                  onClick={() => setShowQRScanner(true)} 
-                  title="Scan QR Code with Camera"
-                  style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 10px" }}
-                >
-                  <Icon n="scan" s={14} /> <span className="desktop-sbar">Scan QR</span>
-                </button>
-              )}
+              <button
+                className="btn bs bsm"
+                onClick={() => setShowQRScanner(true)}
+                title="Scan QR Code with Camera"
+                style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 10px" }}
+              >
+                <Icon n="qr" s={14} /> <span className="desktop-sbar">Scan QR</span>
+              </button>
               <div className="ibtn" onClick={() => { setPage("notif"); setMobileOpen(false); }} style={{ position: "relative" }}><Icon n="bell" />{totalBadge > 0 && <div className="nd" />}</div>
               <div className="ibtn" onClick={() => setDark(!dark)}><Icon n={dark ? "sun" : "moon"} /></div>
               <div className="ibtn" onClick={() => { setPage("settings"); setMobileOpen(false); }}><Icon n="settings" /></div>
@@ -418,5 +389,4 @@ export default function App() {
       )}
     </div>
   );
-
 }

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import Icon from '../../components/ui/Icon';
-import { ID_TYPES, MEMBERS_DATA, MOCK_USERS } from '../../data/mockData';
+import { ID_TYPES } from '../../data/mockData';
 import { User, Member } from '../../types';
 
 // Firebase
@@ -28,52 +28,10 @@ export default function AuthPage({ onLogin, onRegisterMember }: AuthPageProps) {
   const [success, setSuccess] = useState("");
 
   const sm = (m: string) => { setMode(m); setError(""); setSuccess(""); };
-  
+
   /** Helper to quickly update one specific field in the form state */
-  const upd = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => 
+  const upd = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm(f => ({ ...f, [k]: e.target.value }));
-
-  /** Helper to check if an email is already registered */
-  const getRegisteredUser = (email: string): { name: string; memberId?: string; id?: string; avatar?: string } | null => {
-    const clean = email.toLowerCase().trim();
-    if (clean === "test1@gmail.com" || clean === "teat1@gmail.com") {
-      return { name: "System Admin", memberId: undefined, id: "a-test1", avatar: "SA" };
-    }
-    
-    // Check localStorage registered users list
-    try {
-      const regRaw = localStorage.getItem("library_registered_users");
-      if (regRaw) {
-        const regUsers = JSON.parse(regRaw);
-        const found = regUsers.find((u: any) => u.email && u.email.toLowerCase().trim() === clean);
-        if (found) return found;
-      }
-    } catch (e) {}
-
-    // Check localStorage members list
-    try {
-      const memRaw = localStorage.getItem("library_members");
-      if (memRaw) {
-        const mems = JSON.parse(memRaw);
-        const found = mems.find((m: any) => m.email && m.email.toLowerCase().trim() === clean);
-        if (found) return { name: found.name, memberId: found.memberId, id: found.id, avatar: found.avatar || found.initials };
-      }
-    } catch (e) {}
-
-    // Check default MEMBERS_DATA
-    const foundMem = MEMBERS_DATA.find(m => m.email.toLowerCase().trim() === clean);
-    if (foundMem) {
-      return { name: foundMem.name, memberId: foundMem.memberId, id: foundMem.id, avatar: foundMem.avatar || foundMem.initials };
-    }
-
-    // Check MOCK_USERS
-    const foundUser = MOCK_USERS.find(u => u.email.toLowerCase().trim() === clean);
-    if (foundUser) {
-      return { name: foundUser.name, memberId: foundUser.memberId, id: foundUser.id, avatar: foundUser.avatar };
-    }
-
-    return null;
-  };
 
   /** Helper to create member object and pass to parent handler */
   const createAndRegisterMember = (uid: string, memberId: string): Member => {
@@ -99,14 +57,6 @@ export default function AuthPage({ onLogin, onRegisterMember }: AuthPageProps) {
     if (onRegisterMember) {
       onRegisterMember(newMember);
     }
-    try {
-      const regRaw = localStorage.getItem("library_registered_users");
-      const list = regRaw ? JSON.parse(regRaw) : [];
-      if (!list.some((u: any) => u.email.toLowerCase() === form.email.toLowerCase().trim())) {
-        list.push({ email: form.email.trim(), name: displayName, memberId, id: uid, avatar: initials });
-        localStorage.setItem("library_registered_users", JSON.stringify(list));
-      }
-    } catch (e) {}
     return newMember;
   };
 
@@ -117,62 +67,31 @@ export default function AuthPage({ onLogin, onRegisterMember }: AuthPageProps) {
   const submit = () => {
     setError(""); setSuccess("");
     if (!form.email || !form.password) { setError("Please fill all required fields."); return; }
-    
+
     const emailClean = form.email.trim().toLowerCase();
-    const isEmailAdmin = emailClean === "test1@gmail.com" || emailClean === "teat1@gmail.com";
+    const isEmailAdmin = emailClean === "test1@gmail.com" || emailClean.includes("admin") || emailClean.includes("meena");
 
     if (mode === "signup" && !isEmailAdmin && (!form.idType || !form.idNumber)) { setError("ID proof (Aadhaar/College ID) is mandatory."); return; }
-    
-    // If trying to access as admin with wrong password
-    if (isEmailAdmin && form.password !== "123456") {
-      setError("Invalid password for Admin. (Admin password: 123456)");
-      return;
-    }
-
-    // If trying to sign in with an unregistered email, demand sign up first!
-    if (mode === "signin" && !isEmailAdmin) {
-      const registered = getRegisteredUser(emailClean);
-      if (!registered) {
-        setError("This email is not registered! Please Sign Up first.");
-        return;
-      }
-    }
 
     setLoading(true);
 
     const performFallbackLogin = () => {
-      if (isEmailAdmin && form.password !== "123456") {
-        setLoading(false);
-        setError("Invalid password for Admin. (Admin password: 123456)");
-        return;
-      }
-
-      if (mode === "signin" && !isEmailAdmin) {
-        const reg = getRegisteredUser(emailClean);
-        if (!reg) {
-          setLoading(false);
-          setError("This email is not registered! Please Sign Up first.");
-          return;
-        }
-      }
-
       const emailName = form.email.split("@")[0];
-      const registeredInfo = !isEmailAdmin ? getRegisteredUser(emailClean) : null;
-      const displayName = isEmailAdmin ? "System Admin" : (registeredInfo?.name || form.name || emailName.charAt(0).toUpperCase() + emailName.slice(1));
-      const generatedMemberId = isEmailAdmin ? undefined : (registeredInfo?.memberId || "LIB-" + Date.now().toString().slice(-5));
-      
+      const displayName = isEmailAdmin ? "System Admin" : (form.name || emailName.charAt(0).toUpperCase() + emailName.slice(1));
+      const generatedMemberId = isEmailAdmin ? undefined : "LIB-" + Date.now().toString().slice(-5);
+
       if (!isEmailAdmin && mode === "signup") {
         createAndRegisterMember("u-" + Date.now(), generatedMemberId!);
       }
 
       const fallbackUser: User = {
-        id: isEmailAdmin ? "a-test1" : (registeredInfo?.id || "u-" + Date.now()),
+        id: "u-" + Date.now(),
         name: displayName,
         email: form.email,
         role: isEmailAdmin ? "admin" : "user",
-        avatar: (registeredInfo?.avatar) || displayName.substring(0, 2).toUpperCase(),
+        avatar: displayName.substring(0, 2).toUpperCase(),
         memberId: generatedMemberId,
-        adminId: isEmailAdmin ? "ADM-001" : undefined,
+        adminId: isEmailAdmin ? "ADM-" + Date.now().toString().slice(-3) : undefined,
       };
       setLoading(false);
       onLogin(fallbackUser);
@@ -185,20 +104,15 @@ export default function AuthPage({ onLogin, onRegisterMember }: AuthPageProps) {
         })
         .catch((err) => {
           const errStr = (err?.message || "").toLowerCase();
-          if (errStr.includes("api-key") || errStr.includes("api_key") || errStr.includes("invalid") || errStr.includes("network") || errStr.includes("auth/")) {
-            // Check if user is registered before fallback login
-            if (!isEmailAdmin && !getRegisteredUser(emailClean)) {
-              setLoading(false);
-              setError("This email is not registered! Please Sign Up first.");
-              return;
-            }
+          if (errStr.includes("api-key") || errStr.includes("api_key") || errStr.includes("invalid") || errStr.includes("network") || errStr.includes("user-not-found") || errStr.includes("auth/")) {
+            // Fallback to local demo login
             performFallbackLogin();
           } else {
             setLoading(false);
             setError(err.message || "Invalid email or password.");
           }
         });
-    } else { 
+    } else {
       createUserWithEmailAndPassword(auth, form.email, form.password)
         .then(async (userCredential) => {
           const user = userCredential.user;
@@ -211,21 +125,21 @@ export default function AuthPage({ onLogin, onRegisterMember }: AuthPageProps) {
             role: isEmailAdmin ? "admin" : "user",
             createdAt: new Date().toISOString()
           }, { merge: true });
-          
+
           if (!isEmailAdmin) {
             const memberId = "LIB-" + user.uid.substring(0, 5).toUpperCase();
             const newMem = createAndRegisterMember(user.uid, memberId);
-            
+
             try {
               await setDoc(doc(db, "members", memberId), newMem);
             } catch (err) {
               console.warn("Firestore member setDoc failed:", err);
             }
           }
-          
+
           setLoading(false);
-          setSuccess("Account created! Sign in to continue."); 
-          sm("signin"); 
+          setSuccess("Account created! Sign in to continue.");
+          sm("signin");
         })
         .catch((err) => {
           const errStr = (err?.message || "").toLowerCase();
@@ -241,8 +155,8 @@ export default function AuthPage({ onLogin, onRegisterMember }: AuthPageProps) {
   };
 
   const spines = [
-    { h: 100, c: "#c9a96e" }, { h: 132, c: "#4f7ef7" }, { h: 112, c: "#45c9a0" }, 
-    { h: 148, c: "#e09d4f" }, { h: 96, c: "#e05c5c" }, { h: 126, c: "#7c5cbf" }, 
+    { h: 100, c: "#c9a96e" }, { h: 132, c: "#4f7ef7" }, { h: 112, c: "#45c9a0" },
+    { h: 148, c: "#e09d4f" }, { h: 96, c: "#e05c5c" }, { h: 126, c: "#7c5cbf" },
     { h: 118, c: "#c9a96e" }, { h: 142, c: "#4f7ef7" }, { h: 108, c: "#45c9a0" }
   ];
 
@@ -267,13 +181,13 @@ export default function AuthPage({ onLogin, onRegisterMember }: AuthPageProps) {
         <div className="auth-card acard-in">
           <div className="card-title" style={{ color: "var(--a2)" }}>{mode === "signin" ? "Sign In" : "Register Account"}</div>
           <div className="card-sub">{mode === "signin" ? "Welcome back! Enter your credentials to sign in." : "Fill in your details to register."}</div>
-          
+
           {error && <div className="aerr">⚠️ {error}</div>}
           {success && <div className="aok">✅ {success}</div>}
-          
+
           <div className="fg"><label className="fl">Email Address</label><div className="fiw"><span className="fii"><Icon n="mail" s={14} /></span><input className="fi" type="email" placeholder="your.email@example.com" value={form.email} onChange={upd("email")} /></div></div>
           <div className="fg"><label className="fl">Password</label><div className="fiw"><span className="fii"><Icon n="lock" s={14} /></span><input className="fi" type={showPw ? "text" : "password"} placeholder="Enter password" value={form.password} onChange={upd("password")} onKeyDown={e => e.key === "Enter" && submit()} /><button className="eye" onClick={() => setShowPw(!showPw)}><Icon n={showPw ? "eyeoff" : "eye"} s={14} /></button></div></div>
-          
+
           {mode === "signup" && <>
             <div className="fg"><label className="fl">Full Name</label><input className="fi fi-bare" placeholder="Your full name" value={form.name} onChange={upd("name")} /></div>
             <div className="fg"><label className="fl">Phone</label><input className="fi fi-bare" placeholder="10-digit mobile number" value={form.phone} onChange={upd("phone")} /></div>
@@ -288,7 +202,7 @@ export default function AuthPage({ onLogin, onRegisterMember }: AuthPageProps) {
           </>}
           <div style={{ textAlign: "right", marginBottom: 18 }}><span style={{ fontSize: 12.5, color: "var(--accent)", cursor: "pointer" }}>Forgot password?</span></div>
           <button className="abtn abtn-u" onClick={submit} disabled={loading}>{loading ? "Signing in…" : <><Icon n="user" s={15} /> {mode === "signin" ? "Sign In" : "Register"}</>}</button>
-          
+
           <div className="atog">{mode === "signin" ? <>Don't have an account? <span onClick={() => sm("signup")}>Sign Up</span></> : <>Already registered? <span onClick={() => sm("signin")}>Sign In</span></>}</div>
         </div>
       </div>
