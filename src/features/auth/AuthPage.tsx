@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import Icon from '../../components/ui/Icon';
 import { ID_TYPES } from '../../data/mockData';
-import { User } from '../../types';
+import { User, Member } from '../../types';
 
 // Firebase
 import { auth, db } from '../../utils/firebase';
@@ -10,6 +10,7 @@ import { doc, setDoc } from 'firebase/firestore';
 
 interface AuthPageProps {
   onLogin: (u: User) => void;
+  onRegisterMember?: (m: Member) => void;
 }
 
 /**
@@ -17,7 +18,7 @@ interface AuthPageProps {
  * Handles the Sign In and Registration for both Users and Admins.
  * Also features an animated blob background!
  */
-export default function AuthPage({ onLogin }: AuthPageProps) {
+export default function AuthPage({ onLogin, onRegisterMember }: AuthPageProps) {
   // --- UI/AUTH STATE ---
   const [mode, setMode] = useState("signin"); // Tracks if user is signing in or signing up
   const [form, setForm] = useState({ name: "", email: "", password: "", confirm: "", phone: "", memberType: "Student", idType: "College ID", idNumber: "" });
@@ -27,10 +28,37 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
   const [success, setSuccess] = useState("");
 
   const sm = (m: string) => { setMode(m); setError(""); setSuccess(""); };
-  
+
   /** Helper to quickly update one specific field in the form state */
-  const upd = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => 
+  const upd = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm(f => ({ ...f, [k]: e.target.value }));
+
+  /** Helper to create member object and pass to parent handler */
+  const createAndRegisterMember = (uid: string, memberId: string): Member => {
+    const displayName = form.name || form.email.split("@")[0];
+    const initials = displayName.split(" ").filter(Boolean).map(x => x[0]).join("").toUpperCase().slice(0, 2) || "U";
+    const newMember: Member = {
+      id: uid,
+      name: displayName,
+      email: form.email,
+      phone: form.phone || "N/A",
+      type: form.memberType,
+      memberType: form.memberType,
+      memberId,
+      expiry: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split("T")[0],
+      booksIssued: 0,
+      initials,
+      avatar: initials,
+      status: "Active",
+      idType: form.idType || "College ID",
+      idNumber: form.idNumber || "N/A",
+      registrationDate: new Date().toISOString().split("T")[0]
+    };
+    if (onRegisterMember) {
+      onRegisterMember(newMember);
+    }
+    return newMember;
+  };
 
   /**
    * Main submit handler for forms. 
@@ -39,24 +67,30 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
   const submit = () => {
     setError(""); setSuccess("");
     if (!form.email || !form.password) { setError("Please fill all required fields."); return; }
-    
+
     const emailClean = form.email.trim().toLowerCase();
     const isEmailAdmin = emailClean === "test1@gmail.com" || emailClean.includes("admin") || emailClean.includes("meena");
 
     if (mode === "signup" && !isEmailAdmin && (!form.idType || !form.idNumber)) { setError("ID proof (Aadhaar/College ID) is mandatory."); return; }
-    
+
     setLoading(true);
 
     const performFallbackLogin = () => {
       const emailName = form.email.split("@")[0];
       const displayName = isEmailAdmin ? "System Admin" : (form.name || emailName.charAt(0).toUpperCase() + emailName.slice(1));
+      const generatedMemberId = isEmailAdmin ? undefined : "LIB-" + Date.now().toString().slice(-5);
+
+      if (!isEmailAdmin && mode === "signup") {
+        createAndRegisterMember("u-" + Date.now(), generatedMemberId!);
+      }
+
       const fallbackUser: User = {
         id: "u-" + Date.now(),
         name: displayName,
         email: form.email,
         role: isEmailAdmin ? "admin" : "user",
         avatar: displayName.substring(0, 2).toUpperCase(),
-        memberId: isEmailAdmin ? undefined : "LIB-" + Date.now().toString().slice(-5),
+        memberId: generatedMemberId,
         adminId: isEmailAdmin ? "ADM-" + Date.now().toString().slice(-3) : undefined,
       };
       setLoading(false);
@@ -78,7 +112,7 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
             setError(err.message || "Invalid email or password.");
           }
         });
-    } else { 
+    } else {
       createUserWithEmailAndPassword(auth, form.email, form.password)
         .then(async (userCredential) => {
           const user = userCredential.user;
@@ -91,31 +125,21 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
             role: isEmailAdmin ? "admin" : "user",
             createdAt: new Date().toISOString()
           }, { merge: true });
-          
+
           if (!isEmailAdmin) {
             const memberId = "LIB-" + user.uid.substring(0, 5).toUpperCase();
-            const initial = form.name.split(" ").map(x => x[0]).join("").toUpperCase();
-            
-            await setDoc(doc(db, "members", memberId), {
-              id: user.uid,
-              name: form.name,
-              email: form.email,
-              phone: form.phone,
-              type: form.memberType,
-              memberId,
-              expiry: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split("T")[0],
-              booksIssued: 0,
-              initials: initial,
-              status: "Active",
-              idType: form.idType,
-              idNumber: form.idNumber,
-              registrationDate: new Date().toISOString().split("T")[0]
-            });
+            const newMem = createAndRegisterMember(user.uid, memberId);
+
+            try {
+              await setDoc(doc(db, "members", memberId), newMem);
+            } catch (err) {
+              console.warn("Firestore member setDoc failed:", err);
+            }
           }
-          
+
           setLoading(false);
-          setSuccess("Account created! Sign in to continue."); 
-          sm("signin"); 
+          setSuccess("Account created! Sign in to continue.");
+          sm("signin");
         })
         .catch((err) => {
           const errStr = (err?.message || "").toLowerCase();
@@ -131,8 +155,8 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
   };
 
   const spines = [
-    { h: 100, c: "#c9a96e" }, { h: 132, c: "#4f7ef7" }, { h: 112, c: "#45c9a0" }, 
-    { h: 148, c: "#e09d4f" }, { h: 96, c: "#e05c5c" }, { h: 126, c: "#7c5cbf" }, 
+    { h: 100, c: "#c9a96e" }, { h: 132, c: "#4f7ef7" }, { h: 112, c: "#45c9a0" },
+    { h: 148, c: "#e09d4f" }, { h: 96, c: "#e05c5c" }, { h: 126, c: "#7c5cbf" },
     { h: 118, c: "#c9a96e" }, { h: 142, c: "#4f7ef7" }, { h: 108, c: "#45c9a0" }
   ];
 
@@ -157,13 +181,13 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
         <div className="auth-card acard-in">
           <div className="card-title" style={{ color: "var(--a2)" }}>{mode === "signin" ? "Sign In" : "Register Account"}</div>
           <div className="card-sub">{mode === "signin" ? "Welcome back! Enter your credentials to sign in." : "Fill in your details to register."}</div>
-          
+
           {error && <div className="aerr">⚠️ {error}</div>}
           {success && <div className="aok">✅ {success}</div>}
-          
+
           <div className="fg"><label className="fl">Email Address</label><div className="fiw"><span className="fii"><Icon n="mail" s={14} /></span><input className="fi" type="email" placeholder="your.email@example.com" value={form.email} onChange={upd("email")} /></div></div>
           <div className="fg"><label className="fl">Password</label><div className="fiw"><span className="fii"><Icon n="lock" s={14} /></span><input className="fi" type={showPw ? "text" : "password"} placeholder="Enter password" value={form.password} onChange={upd("password")} onKeyDown={e => e.key === "Enter" && submit()} /><button className="eye" onClick={() => setShowPw(!showPw)}><Icon n={showPw ? "eyeoff" : "eye"} s={14} /></button></div></div>
-          
+
           {mode === "signup" && <>
             <div className="fg"><label className="fl">Full Name</label><input className="fi fi-bare" placeholder="Your full name" value={form.name} onChange={upd("name")} /></div>
             <div className="fg"><label className="fl">Phone</label><input className="fi fi-bare" placeholder="10-digit mobile number" value={form.phone} onChange={upd("phone")} /></div>
@@ -178,7 +202,7 @@ export default function AuthPage({ onLogin }: AuthPageProps) {
           </>}
           <div style={{ textAlign: "right", marginBottom: 18 }}><span style={{ fontSize: 12.5, color: "var(--accent)", cursor: "pointer" }}>Forgot password?</span></div>
           <button className="abtn abtn-u" onClick={submit} disabled={loading}>{loading ? "Signing in…" : <><Icon n="user" s={15} /> {mode === "signin" ? "Sign In" : "Register"}</>}</button>
-          
+
           <div className="atog">{mode === "signin" ? <>Don't have an account? <span onClick={() => sm("signup")}>Sign Up</span></> : <>Already registered? <span onClick={() => sm("signin")}>Sign In</span></>}</div>
         </div>
       </div>

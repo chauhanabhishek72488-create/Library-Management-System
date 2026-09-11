@@ -5,6 +5,7 @@ import Stars from '../../components/ui/Stars';
 import PrintModal from '../../components/ui/PrintModal';
 import { Book } from '../../types';
 import { CATS, getNextAccN } from '../../data/mockData';
+import { formatBookQR } from '../../utils/qrHelper';
 
 interface BooksProps {
   books: Book[];
@@ -24,7 +25,7 @@ export default function Books({ books, setBooks, addToast }: BooksProps) {
   const [showAdd, setShowAdd] = useState(false);
   const [showQR, setShowQR] = useState<Book | null>(null);
   const [printItem, setPrintItem] = useState<any | null>(null);
-  
+
   // Auto-generated Accession number state
   const [autoAccNo, setAutoAccNo] = useState("");
 
@@ -76,10 +77,10 @@ export default function Books({ books, setBooks, addToast }: BooksProps) {
     const lq = q.toLowerCase();
     const authorsStr = (b.authors ? b.authors.join(" ") : (b.author || "")).toLowerCase();
     const classNoStr = (b.classificationNo || "").toLowerCase();
-    return (!q || 
-      b.title.toLowerCase().includes(lq) || 
-      authorsStr.includes(lq) || 
-      b.isbn.includes(lq) || 
+    return (!q ||
+      b.title.toLowerCase().includes(lq) ||
+      authorsStr.includes(lq) ||
+      b.isbn.includes(lq) ||
       b.accessionNo.toLowerCase().includes(lq) ||
       classNoStr.includes(lq)
     ) && (cf === "All" || b.category === cf);
@@ -166,22 +167,22 @@ export default function Books({ books, setBooks, addToast }: BooksProps) {
       <div className="no-print" style={{ display: "flex", gap: 10, marginBottom: 18, flexWrap: "wrap" }}>
         <div className="sbar" style={{ flex: 1, minWidth: 220 }}>
           <Icon n="search" s={14} />
-          <input 
-            placeholder="Search title, author 1-3, ISBN, classification, accession…" 
-            value={q} 
-            onChange={e => setQ(e.target.value)} 
+          <input
+            placeholder="Search title, author 1-3, ISBN, classification, accession…"
+            value={q}
+            onChange={e => setQ(e.target.value)}
           />
         </div>
         <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
           {["All", ...CATS.slice(0, 5)].map(c => (
-            <button 
-              key={c} 
-              className="btn bsm" 
-              onClick={() => setCf(c)} 
-              style={{ 
-                background: cf === c ? "var(--accent)" : "var(--surface2)", 
-                color: cf === c ? "#07090f" : "var(--muted)", 
-                border: "1px solid var(--border)" 
+            <button
+              key={c}
+              className="btn bsm"
+              onClick={() => setCf(c)}
+              style={{
+                background: cf === c ? "var(--accent)" : "var(--surface2)",
+                color: cf === c ? "#07090f" : "var(--muted)",
+                border: "1px solid var(--border)"
               }}
             >
               {c}
@@ -210,10 +211,10 @@ export default function Books({ books, setBooks, addToast }: BooksProps) {
                     </span>
                   )}
                 </div>
-                
+
                 <div className="bkt">{b.title}</div>
                 <div className="bka" title={b.author}>{b.author}</div>
-                
+
                 <div style={{ fontSize: 10, color: "var(--muted)", marginBottom: 5, display: "flex", justifyContent: "space-between" }}>
                   <span>Pub: {b.publisher || "N/A"}</span>
                   <span>{b.edition || "1st Ed."}</span>
@@ -263,7 +264,7 @@ export default function Books({ books, setBooks, addToast }: BooksProps) {
                   <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 4 }}>{showQR.author} · {showQR.category}</div>
                   <span className="acc-no">{showQR.accessionNo}</span>
                   <div style={{ display: "flex", justifyContent: "center", margin: "14px 0" }}>
-                    <div className="qrbox" style={{ width: 130, height: 130 }}><QRCode data={`${window.location.origin}/?bookId=${showQR.id}`} size={120} color="#000" bg="#fff" /></div>
+                    <div className="qrbox" style={{ width: 130, height: 130 }}><QRCode data={showQR.accessionNo} size={120} color="#000" bg="#fff" /></div>
                   </div>
                   <div style={{ fontSize: 11, color: "var(--muted)" }}>Shelf: {showQR.shelf} | Class: {showQR.classificationNo || "800.00"}</div>
                 </div>

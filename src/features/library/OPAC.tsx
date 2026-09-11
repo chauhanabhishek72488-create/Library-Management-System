@@ -5,6 +5,7 @@ import QRCode from '../../components/ui/QRCode';
 import PrintModal from '../../components/ui/PrintModal';
 import { Book, User, Reservation, Review } from '../../types';
 import { CATS } from '../../data/mockData';
+import { formatBookQR } from '../../utils/qrHelper';
 
 interface OPACProps {
   books: Book[];
@@ -25,15 +26,15 @@ interface OPACProps {
  * Global library catalog allowing users to search books, view details, print slips,
  * reserve items, manage wishlist, and submit reviews.
  */
-export default function OPAC({ 
-  books, 
-  reservations, 
-  setReservations, 
-  addToast, 
-  reviews, 
-  setReviews, 
-  wishlist, 
-  setWishlist, 
+export default function OPAC({
+  books,
+  reservations,
+  setReservations,
+  addToast,
+  reviews,
+  setReviews,
+  wishlist,
+  setWishlist,
   user,
   initialShowBook,
   onClearInitialBook
@@ -61,9 +62,9 @@ export default function OPAC({
     const lq = q.toLowerCase();
     const authorsStr = (b.authors ? b.authors.join(" ") : (b.author || "")).toLowerCase();
     const classNoStr = (b.classificationNo || "").toLowerCase();
-    return (!q || 
-      b.title.toLowerCase().includes(lq) || 
-      authorsStr.includes(lq) || 
+    return (!q ||
+      b.title.toLowerCase().includes(lq) ||
+      authorsStr.includes(lq) ||
       b.isbn.includes(lq) ||
       b.accessionNo.toLowerCase().includes(lq) ||
       classNoStr.includes(lq)
@@ -75,14 +76,14 @@ export default function OPAC({
       return addToast("error", "You already hold an active reservation for this item.");
     }
     const dt = new Date(); dt.setDate(dt.getDate() + 2);
-    setReservations([{ 
-      id: "r" + Date.now(), 
-      bookId: bk.id, 
-      bookTitle: bk.title, 
-      memberName: user.name, 
-      date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" }), 
-      status: "Active", 
-      expiresDate: dt.toLocaleDateString("en-US", { month: "short", day: "numeric" }) 
+    setReservations([{
+      id: "r" + Date.now(),
+      bookId: bk.id,
+      bookTitle: bk.title,
+      memberName: user.name,
+      date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+      status: "Active",
+      expiresDate: dt.toLocaleDateString("en-US", { month: "short", day: "numeric" })
     }, ...reservations]);
     addToast("success", `Reservation queued for "${bk.title}". Valid for 48 hrs.`);
     setShowD(null);
@@ -90,27 +91,27 @@ export default function OPAC({
 
   const tgW = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (wishlist.includes(id)) { 
-      setWishlist(wishlist.filter(x => x !== id)); 
-      addToast("success", "Removed from wishlist"); 
-    } else { 
-      setWishlist([...wishlist, id]); 
-      addToast("success", "Added to wishlist"); 
+    if (wishlist.includes(id)) {
+      setWishlist(wishlist.filter(x => x !== id));
+      addToast("success", "Removed from wishlist");
+    } else {
+      setWishlist([...wishlist, id]);
+      addToast("success", "Added to wishlist");
     }
   };
 
   const addRev = (bId: string) => {
     if (!rD.r) return addToast("error", "Please select a star rating.");
     const revs = reviews[bId] || [];
-    setReviews({ 
-      ...reviews, 
-      [bId]: [{ 
-        id: "rv" + Date.now(), 
-        user: user.name, 
-        rating: rD.r, 
-        comment: rD.c, 
-        date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" }) 
-      }, ...revs] 
+    setReviews({
+      ...reviews,
+      [bId]: [{
+        id: "rv" + Date.now(),
+        user: user.name,
+        rating: rD.r,
+        comment: rD.c,
+        date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" })
+      }, ...revs]
     });
     addToast("success", "Review submitted!");
     setRD({ r: 0, c: "" });
@@ -132,26 +133,26 @@ export default function OPAC({
         <div style={{ flex: 1, minWidth: 240 }}>
           <div className="sbar" style={{ width: "100%", padding: "12px 18px" }}>
             <Icon n="search" s={16} />
-            <input 
-              placeholder="Search by title, author 1-3, ISBN, classification, accession…" 
-              value={q} 
-              onChange={e => setQ(e.target.value)} 
-              style={{ fontSize: 15 }} 
+            <input
+              placeholder="Search by title, author 1-3, ISBN, classification, accession…"
+              value={q}
+              onChange={e => setQ(e.target.value)}
+              style={{ fontSize: 15 }}
             />
           </div>
         </div>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
           {["All", ...CATS.slice(0, 5)].map(c => (
-            <button 
-              key={c} 
-              className="btn bsm" 
-              onClick={() => setCf(c)} 
-              style={{ 
-                background: cf === c ? "var(--accent)" : "var(--surface2)", 
-                color: cf === c ? "#07090f" : "var(--muted)", 
-                border: "1px solid var(--border)", 
-                padding: "8px 14px", 
-                borderRadius: 20 
+            <button
+              key={c}
+              className="btn bsm"
+              onClick={() => setCf(c)}
+              style={{
+                background: cf === c ? "var(--accent)" : "var(--surface2)",
+                color: cf === c ? "#07090f" : "var(--muted)",
+                border: "1px solid var(--border)",
+                padding: "8px 14px",
+                borderRadius: 20
               }}
             >
               {c}
@@ -159,7 +160,7 @@ export default function OPAC({
           ))}
         </div>
       </div>
-      
+
       <div className="bkg">
         {filtered.map(b => (
           <div key={b.id} className="bkc opac-card" onClick={() => setShowD(b)}>
@@ -193,11 +194,11 @@ export default function OPAC({
             <div style={{ width: 240, background: `linear-gradient(135deg,${showD.available > 0 ? "rgba(69,201,160,.1)" : "rgba(224,92,92,.1)"},var(--surface2))`, display: "flex", flexDirection: "column", alignItems: "center", padding: 30 }}>
               <span style={{ fontSize: 80, marginBottom: 20 }}>{showD.emoji}</span>
               <div className="qrbox" style={{ width: 100, height: 100, marginTop: "auto" }}>
-                <QRCode data={`${window.location.origin}/?bookId=${showD.id}`} size={90} color="#000" bg="#fff" />
+                <QRCode data={showD.accessionNo} size={90} color="#000" bg="#fff" />
               </div>
               <div style={{ fontSize: 10, color: "var(--muted)", marginTop: 8, opacity: 0.8, fontFamily: "monospace" }}>ID: {showD.id}</div>
             </div>
-            
+
             <div style={{ flex: 1, padding: "26px", display: "flex", flexDirection: "column", maxHeight: "85vh", overflowY: "auto" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                 <div>
@@ -219,7 +220,7 @@ export default function OPAC({
                   <button className="ibtn" onClick={handleCloseDetail}><Icon n="x" /></button>
                 </div>
               </div>
-              
+
               <div className="grid-form-responsive" style={{ margin: "18px 0", gap: 10 }}>
                 <div style={{ padding: 10, background: "rgba(255,255,255,.03)", borderRadius: 8 }}>
                   <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 2 }}>Accession No.</div>
@@ -267,7 +268,7 @@ export default function OPAC({
                   </div>
                   <button className="btn bs" onClick={() => addRev(showD.id)} style={{ alignSelf: "flex-end", height: 38 }}>Post</button>
                 </div>
-                
+
                 <div style={{ display: "flex", flexDirection: "column", gap: 10, maxHeight: 150, overflowY: "auto" }}>
                   {(reviews[showD.id] || []).map(r => (
                     <div key={r.id} style={{ padding: 10, background: "rgba(255,255,255,.02)", borderRadius: 8 }}>

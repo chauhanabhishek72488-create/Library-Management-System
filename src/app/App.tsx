@@ -13,10 +13,12 @@ import { User, Book, Transaction, Member, Reservation, Review } from '../types';
 // Pages
 import AuthPage from '../features/auth/AuthPage';
 import UserDash from '../features/dashboard/UserDash';
+import VirtualIDCardPage from '../features/dashboard/VirtualIDCardPage';
 import AdminDash from '../features/admin/AdminDash';
 import Books from '../features/books/Books';
 import Members from '../features/members/Members';
 import IssueReturn from '../features/issue/IssueReturn';
+import QRIssuePage from '../features/issue/QRIssuePage';
 import OPAC from '../features/library/OPAC';
 import Reservations from '../features/library/Reservations';
 import Fines from '../features/library/Fines';
@@ -33,7 +35,6 @@ import Articles from '../features/articles/Articles';
 // UI
 import Icon from '../components/ui/Icon';
 import Toasts from '../components/ui/Toasts';
-import QRScanner from '../components/ui/QRScanner';
 
 /**
  * App component
@@ -48,20 +49,44 @@ export default function App() {
   const [dark, setDark] = useState(true);
   const [page, setPage] = useState("dashboard");
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [toasts, setToasts] = useState<{id: string, type: string, msg: string}[]>([]);
-  
-  // QR Scanner State
-  const [showScanner, setShowScanner] = useState(false);
-  const [scannedBook, setScannedBook] = useState<Book | null>(null);
+  const [toasts, setToasts] = useState<{ id: string, type: string, msg: string }[]>([]);
 
   // --- MOCK DATABASE STATE ---
   const [books, setBooks] = useState<Book[]>(BOOKS_DATA);
-  const [members, setMems] = useState<Member[]>(MEMBERS_DATA);
+  const [members, setMems] = useState<Member[]>(() => {
+    try {
+      const saved = localStorage.getItem("library_members");
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.warn("Failed to load members from localStorage", e);
+    }
+    return MEMBERS_DATA;
+  });
   const [txns, setTxns] = useState<Transaction[]>(TXNS_DATA);
   const [reservations, setReservations] = useState<Reservation[]>(RESERVATIONS_DATA);
   const [reviews, setReviews] = useState<Record<string, Review[]>>(REVIEWS_INIT);
   const [wishlist, setWishlist] = useState<string[]>([]);
   const [notifications, setNotifications] = useState(NOTIFICATIONS_LOG);
+
+  const updateMembersState = (newMems: Member[] | ((prev: Member[]) => Member[])) => {
+    setMems(prev => {
+      const next = typeof newMems === "function" ? newMems(prev) : newMems;
+      try {
+        localStorage.setItem("library_members", JSON.stringify(next));
+      } catch (e) {
+        console.warn("Failed to save members to localStorage", e);
+      }
+      return next;
+    });
+  };
+
+  const handleRegisterMember = (newMember: Member) => {
+    updateMembersState(prev => {
+      const exists = prev.some(m => m.memberId === newMember.memberId || m.email === newMember.email);
+      if (exists) return prev.map(m => (m.memberId === newMember.memberId || m.email === newMember.email) ? { ...m, ...newMember } : m);
+      return [newMember, ...prev];
+    });
+  };
 
   useEffect(() => {
     if (dark) {
@@ -80,21 +105,10 @@ export default function App() {
         const email = fbUser.email || "";
         const name = fbUser.displayName || email.split("@")[0];
 
-        let role: User["role"] = "user";
-        const isEmailAdmin = email.toLowerCase() === "test1@gmail.com" || email.toLowerCase().includes("admin") || email.toLowerCase().includes("meena");
-        try {
-          const profileSnap = await getDoc(doc(db, "users", fbUser.uid));
-          if (profileSnap.exists()) {
-            const profileRole = profileSnap.data().role;
-            role = (profileRole === "admin" || isEmailAdmin) ? "admin" : "user";
-          } else {
-            role = isEmailAdmin ? "admin" : "user";
-          }
-        } catch {
-          role = isEmailAdmin ? "admin" : "user";
-        }
+        const isEmailAdmin = email.toLowerCase().trim() === "test1@gmail.com" || email.toLowerCase().trim() === "teat1@gmail.com";
+        const role: User["role"] = isEmailAdmin ? "admin" : "user";
         const avatar = name.split(" ").map(x => x[0]).join("").toUpperCase();
-        
+
         const loggedUser: User = {
           id: fbUser.uid,
           name,
@@ -102,11 +116,14 @@ export default function App() {
           role,
           avatar,
           memberId: role === "user" ? "LIB-" + fbUser.uid.substring(0, 5).toUpperCase() : undefined,
-          adminId: role === "admin" ? "ADM-" + fbUser.uid.substring(0, 3).toUpperCase() : undefined,
+          adminId: role === "admin" ? "ADM-001" : undefined,
         };
+        try {
+          localStorage.setItem("library_user_session", JSON.stringify(loggedUser));
+        } catch (e) { }
         setUser(loggedUser);
       } else {
-        setUser(null);
+        // If not authenticated in firebase, keep local session if valid
       }
     });
 
@@ -119,7 +136,17 @@ export default function App() {
     const unsubMems = onSnapshot(collection(db, "members"), (snapshot) => {
       const list: Member[] = [];
       snapshot.forEach(doc => list.push({ id: doc.id, ...doc.data() } as Member));
-      if (list.length > 0) setMems(list);
+      if (list.length > 0) {
+        updateMembersState(prev => {
+          const map = new Map<string, Member>();
+          list.forEach(m => map.set(m.memberId || m.id, m));
+          prev.forEach(m => {
+            const key = m.memberId || m.id;
+            if (!map.has(key)) map.set(key, m);
+          });
+          return Array.from(map.values());
+        });
+      }
     }, (err) => console.warn("Firestore members snapshot error:", err));
 
     const unsubTxns = onSnapshot(collection(db, "transactions"), (snapshot) => {
@@ -171,7 +198,7 @@ export default function App() {
         setScannedBook(foundBook);
         setPage("opac");
         addToast("success", `Redirected to book: ${foundBook.title}`);
-        
+
         // Strip out bookId query parameter from address bar
         const newUrl = window.location.origin + window.location.pathname;
         window.history.replaceState({}, document.title, newUrl);
@@ -184,7 +211,7 @@ export default function App() {
    */
   const addToast = (type: string, msg: string) => {
     const id = Date.now().toString();
-    setToasts(t => [...t, {id, type: type as any, msg}]);
+    setToasts(t => [...t, { id, type: type as any, msg }]);
     setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), 3200);
   };
 
@@ -208,43 +235,50 @@ export default function App() {
   };
 
   // If no user is logged in, restrict access and only render the AuthPage (Login Screen)
-  if(!user) return (
+  if (!user) return (
     <div className={dark ? "" : "lm"} style={{ background: "var(--bg)", color: "var(--text)", minHeight: "100vh" }}>
-      <AuthPage onLogin={login} />
+      <AuthPage onLogin={login} onRegisterMember={handleRegisterMember} />
       <Toasts list={toasts as any} />
     </div>
   );
-  
-  // Determine if the user is an Admin or Librarian based on their role
-  const isAdmin = user.role !== "user";
+
+  // ONLY test1@gmail.com / teat1@gmail.com is allowed as Admin. Every other user is strictly a Member/Student.
+  const emailClean = (user.email || "").toLowerCase().trim();
+  const isAdmin = emailClean === "test1@gmail.com" || emailClean === "teat1@gmail.com";
 
   // Sidebar link structures. Different links depending on the user type.
   const adminNav = [
-    {s: "Management", items: [
-      {id:"dashboard", l:"Dashboard", ic:"home"}, 
-      {id:"books", l:"Book Catalog", ic:"book"}, 
-      {id:"periodicals", l:"Newspapers & Magazines", ic:"newspaper"}, 
-      {id:"articles", l:"Articles Column", ic:"fileText"}, 
-      {id:"members", l:"Members", ic:"users"}, 
-      {id:"issue", l:"Issue & Return", ic:"refresh"}
-    ]},
-    {s: "Services", items: [{id:"opac", l:"OPAC Catalog", ic:"opac"}, {id:"reservations", l:"Reservations", ic:"bookmark", b:reservations.filter(r=>r.status==="Active").length}, {id:"fines", l:"Fines & Payments", ic:"dollar"}, {id:"notif", l:"Notifications", ic:"sms", b:notifications.filter(n=>!n.read).length}]},
-    {s: "Insights", items: [{id:"reports", l:"Reports & Analytics", ic:"pieChart"}]},
-    {s: "System", items: [{id:"access", l:"Access Control", ic:"shield"}, {id:"settings", l:"Settings", ic:"settings"}]},
+    {
+      s: "Management", items: [
+        { id: "dashboard", l: "Dashboard", ic: "home" },
+        { id: "books", l: "Book Catalog", ic: "book" },
+        { id: "periodicals", l: "Newspapers & Magazines", ic: "newspaper" },
+        { id: "articles", l: "Articles Column", ic: "fileText" },
+        { id: "members", l: "Members", ic: "users" },
+        { id: "issue", l: "Issue & Return", ic: "refresh" },
+        { id: "qrscan", l: "QR Scan Issue", ic: "scan" }
+      ]
+    },
+    { s: "Services", items: [{ id: "opac", l: "OPAC Catalog", ic: "opac" }, { id: "reservations", l: "Reservations", ic: "bookmark", b: reservations.filter(r => r.status === "Active").length }, { id: "fines", l: "Fines & Payments", ic: "dollar" }, { id: "notif", l: "Notifications", ic: "sms", b: notifications.filter(n => !n.read).length }] },
+    { s: "Insights", items: [{ id: "reports", l: "Reports & Analytics", ic: "pieChart" }] },
+    { s: "System", items: [{ id: "access", l: "Access Control", ic: "shield" }, { id: "settings", l: "Settings", ic: "settings" }] },
   ];
   const userNav = [
-    {s: "My Library", items: [
-      {id:"dashboard", l:"My Dashboard", ic:"home"},
-      {id:"opac", l:"Browse Books", ic:"book"},
-      {id:"periodicals", l:"Newspapers & Magazines", ic:"newspaper"},
-      {id:"articles", l:"Articles Column", ic:"fileText"},
-      {id:"history", l:"Reading History", ic:"history", b:wishlist.length>0 ? wishlist.length : 0},
-      {id:"ai", l:"AI Recommender", ic:"ai"},
-      {id:"notif", l:"Notifications", ic:"bell", b:notifications.filter(n=>!n.read).length},
-      {id:"settings", l:"Profile & Settings", ic:"settings"},
-    ]},
+    {
+      s: "My Library", items: [
+        { id: "dashboard", l: "My Dashboard", ic: "home" },
+        { id: "idcard", l: "Virtual ID Card", ic: "card" },
+        { id: "opac", l: "Browse Books", ic: "book" },
+        { id: "periodicals", l: "Newspapers & Magazines", ic: "newspaper" },
+        { id: "articles", l: "Articles Column", ic: "fileText" },
+        { id: "history", l: "Reading History", ic: "history", b: wishlist.length > 0 ? wishlist.length : 0 },
+        { id: "ai", l: "AI Recommender", ic: "ai" },
+        { id: "notif", l: "Notifications", ic: "bell", b: notifications.filter(n => !n.read).length },
+        { id: "settings", l: "Profile & Settings", ic: "settings" },
+      ]
+    },
   ];
-  
+
   const nav = isAdmin ? adminNav : userNav;
   // Get the title label for the Header based on whatever page is active
   const label = nav.flatMap(s => s.items).find(i => i.id === page)?.l || "LibraryOS";
@@ -261,16 +295,16 @@ export default function App() {
   const renderPage = () => {
     if (!isAdmin) {
       if (page === "dashboard") return <UserDash user={user} books={books} txns={txns} wishlist={wishlist as any} setPage={setPage} />;
-      if (page === "opac") return <OPAC books={books} reservations={reservations} setReservations={setReservations} addToast={addToast} reviews={reviews} setReviews={setReviews} wishlist={wishlist} setWishlist={setWishlist} user={user} initialShowBook={scannedBook} onClearInitialBook={() => setScannedBook(null)} />;
+      if (page === "opac") return <OPAC books={books} reservations={reservations} setReservations={setReservations} addToast={addToast} reviews={reviews} setReviews={setReviews} wishlist={wishlist} setWishlist={setWishlist} user={user} />;
       if (page === "periodicals") return <Periodicals addToast={addToast} isAdmin={false} />;
       if (page === "articles") return <Articles addToast={addToast} isAdmin={false} />;
       if (page === "history") return <ReadingHistory user={user} txns={txns} books={books} wishlist={wishlist} setWishlist={setWishlist} reviews={reviews} setReviews={setReviews} addToast={addToast} />;
       if (page === "ai") return <AIRecommender user={user} txns={txns} books={books} addToast={addToast} />;
       if (page === "notif") return <NotificationsPage members={members} txns={txns} reservations={reservations} addToast={addToast} logs={notifications} setLogs={setNotifications} />;
       if (page === "settings") return <Settings user={user} dark={dark} setDark={setDark} addToast={addToast} />;
-      return <UserDash user={user} books={books} txns={txns} wishlist={wishlist as any} setPage={setPage} />;
+      return <UserDash user={user} members={members} books={books} txns={txns} wishlist={wishlist as any} setPage={setPage} />;
     }
-    
+
     // Admin Routes
     if (page === "dashboard") return <AdminDash books={books} members={members} txns={txns} setBooks={setBooks} setTxns={setTxns} addToast={addToast} />;
     if (page === "books") return <Books books={books} setBooks={setBooks} addToast={addToast} />;
@@ -278,19 +312,19 @@ export default function App() {
     if (page === "articles") return <Articles addToast={addToast} isAdmin={true} />;
     if (page === "members") return <Members members={members} setMembers={setMems} addToast={addToast} />;
     if (page === "issue") return <IssueReturn books={books} setBooks={setBooks} members={members} txns={txns} setTxns={setTxns} addToast={addToast} />;
-    if (page === "opac") return <OPAC books={books} reservations={reservations} setReservations={setReservations} addToast={addToast} reviews={reviews} setReviews={setReviews} wishlist={wishlist} setWishlist={setWishlist} user={user} initialShowBook={scannedBook} onClearInitialBook={() => setScannedBook(null)} />;
+    if (page === "opac") return <OPAC books={books} reservations={reservations} setReservations={setReservations} addToast={addToast} reviews={reviews} setReviews={setReviews} wishlist={wishlist} setWishlist={setWishlist} user={user} />;
     if (page === "reservations") return <Reservations reservations={reservations} setReservations={setReservations} books={books} members={members} addToast={addToast} />;
     if (page === "fines") return <Fines txns={txns} addToast={addToast} />;
     if (page === "notif") return <NotificationsPage members={members} txns={txns} reservations={reservations} addToast={addToast} logs={notifications} setLogs={setNotifications} />;
     if (page === "reports") return <Reports books={books} members={members} txns={txns} addToast={addToast} />;
     if (page === "access") return <AccessControl />;
     if (page === "settings") return <Settings user={user} dark={dark} setDark={setDark} addToast={addToast} />;
-    
+
     return <AdminDash books={books} members={members} txns={txns} />;
   };
 
   const avBg = isAdmin ? "linear-gradient(135deg,var(--danger),#b03030)" : "linear-gradient(135deg,var(--a2),var(--a3))";
-  
+
   // Gets sum of the notification badges the navigation items have.
   const totalBadge = nav.flatMap(s => s.items).reduce((s, i) => s + (i.b || 0), 0);
 
@@ -300,8 +334,8 @@ export default function App() {
       <div style={{ display: "flex", height: "100vh", overflow: "hidden" }}>
         {/* Mobile Backdrop Overlay */}
         {mobileOpen && (
-          <div 
-            className="mobile-backdrop no-print" 
+          <div
+            className="mobile-backdrop no-print"
             onClick={() => setMobileOpen(false)}
             style={{
               position: "fixed",
@@ -360,9 +394,6 @@ export default function App() {
             <div className="tbtitle">{label}</div>
             <div className="sbar desktop-sbar"><Icon n="search" s={14} /><input placeholder="Quick search…" /></div>
             <div style={{ display: "flex", gap: 7 }}>
-              <button className="ibtn" onClick={() => setShowScanner(true)} title="Scan Book QR Code" style={{ background: 'rgba(255,255,255,.05)', border: '1px solid var(--border)' }}>
-                <Icon n="scan" />
-              </button>
               <div className="ibtn" onClick={() => { setPage("notif"); setMobileOpen(false); }} style={{ position: "relative" }}><Icon n="bell" />{totalBadge > 0 && <div className="nd" />}</div>
               <div className="ibtn" onClick={() => setDark(!dark)}><Icon n={dark ? "sun" : "moon"} /></div>
               <div className="ibtn" onClick={() => { setPage("settings"); setMobileOpen(false); }}><Icon n="settings" /></div>
@@ -375,7 +406,9 @@ export default function App() {
         <QRScanner onScanSuccess={handleScanSuccess} onClose={() => setShowScanner(false)} />
       )}
       <Toasts list={toasts as any} />
+      {showQRScanner && (
+        <QRScannerModal onClose={() => setShowQRScanner(false)} />
+      )}
     </div>
   );
-
 }

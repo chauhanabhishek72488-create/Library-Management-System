@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
+import Icon from '../../components/ui/Icon';
 import QRCode from '../../components/ui/QRCode';
-import { User, Book, Transaction } from '../../types';
+import { User, Book, Transaction, Member } from '../../types';
 import { calcFine, liveStatus } from '../../utils/helpers';
+import { formatMemberQR } from '../../utils/qrHelper';
 
 interface UserDashProps {
   user: User;
+  members?: Member[];
   books: Book[];
   txns: Transaction[];
   wishlist: Book[];
@@ -16,27 +19,38 @@ interface UserDashProps {
  * Displays the personal dashboard for a logged-in library member, 
  * including their QR code, live books issued, live fines, and new arrivals.
  */
-export default function UserDash({ user, books, txns, wishlist, setPage }: UserDashProps) {
+export default function UserDash({ user, members = [], books, txns, wishlist, setPage }: UserDashProps) {
+  // Find full matching member record from database state to ensure 100% identical data with Admin page
+  const currentMember: Member | User = members.find(m =>
+    (user.memberId && m.memberId && m.memberId.toLowerCase() === user.memberId.toLowerCase()) ||
+    (m.email && user.email && m.email.toLowerCase() === user.email.toLowerCase())
+  ) || user;
+
+  const [showIDCard, setShowIDCard] = useState(false);
+
   // Filter all transactions to only show this specific user's transactions
   const my = txns.filter(t => t.member === user.name);
-  
+
   // Filter further to find books that are STILL issued (not returned yet)
   const myI = my.filter(t => t.status !== "Returned" && !t.returnDate);
-  
+
   // Add up all live or past fines purely for this user
   const myF = my.reduce((s, t) => s + calcFine(t.dueDate, t.returnDate), 0);
-  
+
   // Detect if they have overdue books right now
   const overdue = my.filter(t => liveStatus(t as any) === "Overdue");
-  
+
   // State to refresh component every 1 minute so overdue logic/clocks are always fresh
   const [now, setNow] = useState(new Date());
 
-  useEffect(() => { 
+  useEffect(() => {
     // Setup 60-second polling interval
-    const timer = setInterval(() => setNow(new Date()), 60000); 
+    const timer = setInterval(() => setNow(new Date()), 60000);
     return () => clearInterval(timer); // Cleanup when user leaves the page
   }, []);
+
+  const qrPayload = formatMemberQR(currentMember);
+  const avatarText = user.avatar || (currentMember as any).avatar || (currentMember as any).initials || user.name.slice(0, 2).toUpperCase();
 
   return (
     <div>
@@ -47,23 +61,33 @@ export default function UserDash({ user, books, txns, wishlist, setPage }: UserD
               Welcome back, {user.name.split(" ")[0]}! 👋
             </div>
             <div style={{ color: "var(--muted)", fontSize: 13 }}>
-              Member ID: <code style={{ color: "var(--accent)" }}>{user.memberId}</code> · {user.memberType || "Student"} · Expires Dec 2025
+              Member ID: <code style={{ color: "var(--accent)", fontWeight: 700 }}>{user.memberId || (currentMember as any).memberId}</code> · {(currentMember as any).memberType || (currentMember as any).type || user.memberType || "Student"} · Expires {(currentMember as any).expiry || "Dec 2025"}
             </div>
-            {overdue.length > 0 && (
-              <div style={{ marginTop: 8, background: "rgba(224,92,92,.12)", border: "1px solid rgba(224,92,92,.3)", borderRadius: 8, padding: "7px 12px", fontSize: 12.5, color: "var(--danger)", display: "inline-flex", alignItems: "center", gap: 6 }}>
-                ⚠️ You have {overdue.length} overdue book{overdue.length > 1 ? "s" : ""}! Return immediately to stop fine accumulation.
-              </div>
-            )}
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <div className="qrbox" style={{ width: 86, height: 86 }}>
-              <QRCode data={user.memberId || "MEMBER"} size={76} color="#000" bg="#fff" />
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <div 
+              className="qrbox" 
+              style={{ width: 86, height: 86, padding: 4, background: "#fff", borderRadius: 10, cursor: "pointer", boxShadow: "0 4px 14px rgba(0,0,0,0.25)" }} 
+              onClick={() => setShowIDCard(true)} 
+              title="Click to view full Virtual ID Card"
+            >
+              <QRCode data={qrPayload} size={78} color="#000" bg="#fff" />
             </div>
-            <div style={{ fontSize: 11, color: "var(--muted)" }}>Your QR</div>
+            <div>
+              <button 
+                type="button"
+                className="btn bp bsm" 
+                style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "9px 15px", fontWeight: 600, cursor: "pointer" }}
+                onClick={() => setShowIDCard(true)}
+              >
+                <Icon n="card" s={14} /> View Virtual ID Card
+              </button>
+              <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4 }}>Click to enlarge QR code & card</div>
+            </div>
           </div>
         </div>
       </div>
-      
+
       <div className="g g4" style={{ marginBottom: 20 }}>
         {[
           { l: "Books Issued", v: myI.length, c: "var(--a2)", i: "📖", pg: "history" },
@@ -79,7 +103,7 @@ export default function UserDash({ user, books, txns, wishlist, setPage }: UserD
           </div>
         ))}
       </div>
-      
+
       <div className="g g2">
         <div className="card">
           <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 17, fontWeight: 700, marginBottom: 14 }}>📖 My Issued Books</div>
@@ -110,6 +134,32 @@ export default function UserDash({ user, books, txns, wishlist, setPage }: UserD
           <button className="btn bp bsm" style={{ width: "100%", marginTop: 12 }} onClick={() => setPage("ai")}>🤖 Get AI Picks →</button>
         </div>
       </div>
+
+      {/* Identical Virtual ID Card Modal as Admin Page */}
+      {showIDCard && (
+        <div className="mo" onClick={e => e.target === e.currentTarget && setShowIDCard(false)}>
+          <div className="mbox" style={{ maxWidth: 340 }}>
+            <div className="mh">
+              <div className="mt">Virtual ID Card</div>
+              <button className="ibtn" onClick={() => setShowIDCard(false)}><Icon n="x" /></button>
+            </div>
+            <div className="mb" style={{ textAlign: "center" }}>
+              <div style={{ background: "linear-gradient(135deg,#0d1526,#182040)", borderRadius: 14, padding: "30px 20px", border: "1px solid var(--accent)", position: "relative", overflow: "hidden" }}>
+                <div style={{ width: 140, height: 140, borderRadius: "50%", background: "var(--accent)", position: "absolute", top: -70, right: -70, opacity: 0.1, filter: "blur(20px)" }} />
+                <div className="av" style={{ width: 64, height: 64, fontSize: 32, margin: "0 auto 12px", background: "linear-gradient(135deg,var(--accent),#9a7438)" }}>{avatarText}</div>
+                <div style={{ fontSize: 20, fontWeight: 700, color: "#fff", marginBottom: 2 }}>{user.name}</div>
+                <div style={{ fontSize: 13, color: "var(--accent)", marginBottom: 20 }}>{(currentMember as any).memberType || (currentMember as any).type || user.memberType || "Student"}</div>
+                <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
+                  <div className="qrbox" style={{ width: 140, height: 140, padding: 10, background: "#fff", borderRadius: 12 }}>
+                    <QRCode data={qrPayload} size={120} color="#000" bg="#fff" />
+                  </div>
+                </div>
+                <div className="acc-no" style={{ fontSize: 16 }}>{user.memberId || (currentMember as any).memberId}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
