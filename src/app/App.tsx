@@ -33,6 +33,7 @@ import Articles from '../features/articles/Articles';
 // UI
 import Icon from '../components/ui/Icon';
 import Toasts from '../components/ui/Toasts';
+import QRScanner from '../components/ui/QRScanner';
 
 /**
  * App component
@@ -49,6 +50,10 @@ export default function App() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [toasts, setToasts] = useState<{id: string, type: string, msg: string}[]>([]);
   
+  // QR Scanner State
+  const [showScanner, setShowScanner] = useState(false);
+  const [scannedBook, setScannedBook] = useState<Book | null>(null);
+
   // --- MOCK DATABASE STATE ---
   const [books, setBooks] = useState<Book[]>(BOOKS_DATA);
   const [members, setMems] = useState<Member[]>(MEMBERS_DATA);
@@ -156,6 +161,24 @@ export default function App() {
     };
   }, []);
 
+  // Handle absolute URL deep linking for QR code scans
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const bookId = params.get('bookId');
+    if (bookId && books.length > 0) {
+      const foundBook = books.find(b => b.id === bookId || (b as any).accessionNo === bookId);
+      if (foundBook) {
+        setScannedBook(foundBook);
+        setPage("opac");
+        addToast("success", `Redirected to book: ${foundBook.title}`);
+        
+        // Strip out bookId query parameter from address bar
+        const newUrl = window.location.origin + window.location.pathname;
+        window.history.replaceState({}, document.title, newUrl);
+      }
+    }
+  }, [books]);
+
   /**
    * Helper function to show small notification popups (Toasts) at the bottom.
    */
@@ -170,6 +193,19 @@ export default function App() {
     setUser(u); setPage("dashboard"); addToast("success", `Welcome, ${u.name}!`);
   };
   const logout = () => { auth.signOut(); setUser(null); setPage("dashboard"); };
+
+  const handleScanSuccess = (decodedText: string) => {
+    // Find the book with this unique ID or accession number
+    const foundBook = books.find(b => b.id === decodedText || (b as any).accessionNo === decodedText);
+    if (foundBook) {
+      addToast("success", `Found book: ${foundBook.title}`);
+      setScannedBook(foundBook);
+      setPage("opac");
+      setShowScanner(false);
+    } else {
+      addToast("error", `Scanned value "${decodedText}" did not match any book record.`);
+    }
+  };
 
   // If no user is logged in, restrict access and only render the AuthPage (Login Screen)
   if(!user) return (
@@ -225,7 +261,7 @@ export default function App() {
   const renderPage = () => {
     if (!isAdmin) {
       if (page === "dashboard") return <UserDash user={user} books={books} txns={txns} wishlist={wishlist as any} setPage={setPage} />;
-      if (page === "opac") return <OPAC books={books} reservations={reservations} setReservations={setReservations} addToast={addToast} reviews={reviews} setReviews={setReviews} wishlist={wishlist} setWishlist={setWishlist} user={user} />;
+      if (page === "opac") return <OPAC books={books} reservations={reservations} setReservations={setReservations} addToast={addToast} reviews={reviews} setReviews={setReviews} wishlist={wishlist} setWishlist={setWishlist} user={user} initialShowBook={scannedBook} onClearInitialBook={() => setScannedBook(null)} />;
       if (page === "periodicals") return <Periodicals addToast={addToast} isAdmin={false} />;
       if (page === "articles") return <Articles addToast={addToast} isAdmin={false} />;
       if (page === "history") return <ReadingHistory user={user} txns={txns} books={books} wishlist={wishlist} setWishlist={setWishlist} reviews={reviews} setReviews={setReviews} addToast={addToast} />;
@@ -242,7 +278,7 @@ export default function App() {
     if (page === "articles") return <Articles addToast={addToast} isAdmin={true} />;
     if (page === "members") return <Members members={members} setMembers={setMems} addToast={addToast} />;
     if (page === "issue") return <IssueReturn books={books} setBooks={setBooks} members={members} txns={txns} setTxns={setTxns} addToast={addToast} />;
-    if (page === "opac") return <OPAC books={books} reservations={reservations} setReservations={setReservations} addToast={addToast} reviews={reviews} setReviews={setReviews} wishlist={wishlist} setWishlist={setWishlist} user={user} />;
+    if (page === "opac") return <OPAC books={books} reservations={reservations} setReservations={setReservations} addToast={addToast} reviews={reviews} setReviews={setReviews} wishlist={wishlist} setWishlist={setWishlist} user={user} initialShowBook={scannedBook} onClearInitialBook={() => setScannedBook(null)} />;
     if (page === "reservations") return <Reservations reservations={reservations} setReservations={setReservations} books={books} members={members} addToast={addToast} />;
     if (page === "fines") return <Fines txns={txns} addToast={addToast} />;
     if (page === "notif") return <NotificationsPage members={members} txns={txns} reservations={reservations} addToast={addToast} logs={notifications} setLogs={setNotifications} />;
@@ -324,6 +360,9 @@ export default function App() {
             <div className="tbtitle">{label}</div>
             <div className="sbar desktop-sbar"><Icon n="search" s={14} /><input placeholder="Quick search…" /></div>
             <div style={{ display: "flex", gap: 7 }}>
+              <button className="ibtn" onClick={() => setShowScanner(true)} title="Scan Book QR Code" style={{ background: 'rgba(255,255,255,.05)', border: '1px solid var(--border)' }}>
+                <Icon n="scan" />
+              </button>
               <div className="ibtn" onClick={() => { setPage("notif"); setMobileOpen(false); }} style={{ position: "relative" }}><Icon n="bell" />{totalBadge > 0 && <div className="nd" />}</div>
               <div className="ibtn" onClick={() => setDark(!dark)}><Icon n={dark ? "sun" : "moon"} /></div>
               <div className="ibtn" onClick={() => { setPage("settings"); setMobileOpen(false); }}><Icon n="settings" /></div>
@@ -332,6 +371,9 @@ export default function App() {
           <div className="content">{renderPage()}</div>
         </main>
       </div>
+      {showScanner && (
+        <QRScanner onScanSuccess={handleScanSuccess} onClose={() => setShowScanner(false)} />
+      )}
       <Toasts list={toasts as any} />
     </div>
   );

@@ -16,6 +16,8 @@ interface OPACProps {
   wishlist: string[];
   setWishlist: (w: string[]) => void;
   user: User;
+  initialShowBook?: Book | null;
+  onClearInitialBook?: () => void;
 }
 
 /**
@@ -23,12 +25,37 @@ interface OPACProps {
  * Global library catalog allowing users to search books, view details, print slips,
  * reserve items, manage wishlist, and submit reviews.
  */
-export default function OPAC({ books, reservations, setReservations, addToast, reviews, setReviews, wishlist, setWishlist, user }: OPACProps) {
+export default function OPAC({ 
+  books, 
+  reservations, 
+  setReservations, 
+  addToast, 
+  reviews, 
+  setReviews, 
+  wishlist, 
+  setWishlist, 
+  user,
+  initialShowBook,
+  onClearInitialBook
+}: OPACProps) {
   const [q, setQ] = useState("");
   const [cf, setCf] = useState("All");
   const [showD, setShowD] = useState<Book | null>(null);
   const [printItem, setPrintItem] = useState<any | null>(null);
   const [rD, setRD] = useState({ r: 0, c: "" });
+
+  React.useEffect(() => {
+    if (initialShowBook) {
+      setShowD(initialShowBook);
+    }
+  }, [initialShowBook]);
+
+  const handleCloseDetail = () => {
+    setShowD(null);
+    if (onClearInitialBook) {
+      onClearInitialBook();
+    }
+  };
 
   const filtered = books.filter(b => {
     const lq = q.toLowerCase();
@@ -161,14 +188,14 @@ export default function OPAC({ books, reservations, setReservations, addToast, r
 
       {/* Item Details Dialog */}
       {showD && (
-        <div className="mo" onClick={e => e.target === e.currentTarget && setShowD(null)}>
+        <div className="mo" onClick={e => e.target === e.currentTarget && handleCloseDetail()}>
           <div className="mbox flex-responsive" style={{ maxWidth: 720, padding: 0, overflow: "hidden" }}>
             <div style={{ width: 240, background: `linear-gradient(135deg,${showD.available > 0 ? "rgba(69,201,160,.1)" : "rgba(224,92,92,.1)"},var(--surface2))`, display: "flex", flexDirection: "column", alignItems: "center", padding: 30 }}>
               <span style={{ fontSize: 80, marginBottom: 20 }}>{showD.emoji}</span>
               <div className="qrbox" style={{ width: 100, height: 100, marginTop: "auto" }}>
-                <QRCode data={showD.accessionNo} size={90} color="#000" bg="#fff" />
+                <QRCode data={`${window.location.origin}/?bookId=${showD.id}`} size={90} color="#000" bg="#fff" />
               </div>
-              <div style={{ fontSize: 10, color: "var(--muted)", marginTop: 8, opacity: 0.8, fontFamily: "monospace" }}>{showD.accessionNo}</div>
+              <div style={{ fontSize: 10, color: "var(--muted)", marginTop: 8, opacity: 0.8, fontFamily: "monospace" }}>ID: {showD.id}</div>
             </div>
             
             <div style={{ flex: 1, padding: "26px", display: "flex", flexDirection: "column", maxHeight: "85vh", overflowY: "auto" }}>
@@ -189,7 +216,7 @@ export default function OPAC({ books, reservations, setReservations, addToast, r
                   <button className="ibtn" onClick={(e) => tgW(showD.id, e as any)} style={{ border: "1px solid var(--border)" }}>
                     <Icon n={wishlist.includes(showD.id) ? "heartfull" : "heart"} s={15} />
                   </button>
-                  <button className="ibtn" onClick={() => setShowD(null)}><Icon n="x" /></button>
+                  <button className="ibtn" onClick={handleCloseDetail}><Icon n="x" /></button>
                 </div>
               </div>
               
