@@ -35,6 +35,8 @@ import Articles from '../features/articles/Articles';
 // UI
 import Icon from '../components/ui/Icon';
 import Toasts from '../components/ui/Toasts';
+import QRScanner from '../components/ui/QRScanner';
+import QRScannerModal from '../components/ui/QRScannerModal';
 
 /**
  * App component
@@ -50,6 +52,9 @@ export default function App() {
   const [page, setPage] = useState("dashboard");
   const [mobileOpen, setMobileOpen] = useState(false);
   const [toasts, setToasts] = useState<{ id: string, type: string, msg: string }[]>([]);
+  const [showScanner, setShowScanner] = useState(false);
+  const [showQRScanner, setShowQRScanner] = useState(false);
+  const [scannedBook, setScannedBook] = useState<Book | null>(null);
 
   // --- MOCK DATABASE STATE ---
   const [books, setBooks] = useState<Book[]>(BOOKS_DATA);
@@ -124,8 +129,15 @@ export default function App() {
         setUser(loggedUser);
       } else {
         // If not authenticated in firebase, keep local session if valid
+        setUser(null);
       }
     });
+
+    return () => unsubAuth();
+  }, []);
+
+  useEffect(() => {
+    if (!user?.id) return; // Only set up listeners once the user is authenticated
 
     const unsubBooks = onSnapshot(collection(db, "books"), (snapshot) => {
       const list: Book[] = [];
@@ -179,14 +191,13 @@ export default function App() {
     }, (err) => console.warn("Firestore reviews snapshot error:", err));
 
     return () => {
-      unsubAuth();
       unsubBooks();
       unsubMems();
       unsubTxns();
       unsubReservations();
       unsubReviews();
     };
-  }, []);
+  }, [user?.id]);
 
   // Handle absolute URL deep linking for QR code scans
   useEffect(() => {
@@ -312,6 +323,7 @@ export default function App() {
     if (page === "articles") return <Articles addToast={addToast} isAdmin={true} />;
     if (page === "members") return <Members members={members} setMembers={setMems} addToast={addToast} />;
     if (page === "issue") return <IssueReturn books={books} setBooks={setBooks} members={members} txns={txns} setTxns={setTxns} addToast={addToast} />;
+    if (page === "qrscan") return <QRIssuePage books={books} setBooks={setBooks} members={members} txns={txns} setTxns={setTxns} addToast={addToast} />;
     if (page === "opac") return <OPAC books={books} reservations={reservations} setReservations={setReservations} addToast={addToast} reviews={reviews} setReviews={setReviews} wishlist={wishlist} setWishlist={setWishlist} user={user} />;
     if (page === "reservations") return <Reservations reservations={reservations} setReservations={setReservations} books={books} members={members} addToast={addToast} />;
     if (page === "fines") return <Fines txns={txns} addToast={addToast} />;

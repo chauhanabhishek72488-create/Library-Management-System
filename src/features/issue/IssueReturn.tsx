@@ -47,7 +47,7 @@ export default function IssueReturn({ books, setBooks, members, txns, setTxns, a
     const dueDate = dd.toLocaleDateString("en-US", { month: "short", day: "numeric" });
     
     // Add transaction to history
-    setTxns([{ id: "t" + Date.now(), bookId: bk.id, book: bk.title, memberId: mb.id, member: mb.name, issueDate, dueDate, returnDate: null, status: "Issued", fine: 0, renewed: false }, ...txns]);
+    setTxns([{ id: "t" + Date.now(), bookId: bk.id, book: bk.title, accessionNo: bk.accessionNo, memberId: mb.id, member: mb.name, issueDate, dueDate, returnDate: null, status: "Issued", fine: 0, renewed: false }, ...txns]);
     
     // Deplete stock of book locally
     setBooks(books.map(b => b.id === bk.id ? { ...b, available: b.available - 1 } : b));
@@ -112,7 +112,7 @@ export default function IssueReturn({ books, setBooks, members, txns, setTxns, a
                 {recentIssues.map(t => (
                   <div key={t.id} className="flex-item-responsive" style={{ border: '1px solid rgba(0,0,0,0.06)', padding: 10, borderRadius: 8 }}>
                     <div>
-                      <div style={{ fontWeight: 700 }}>{t.book}</div>
+                      <div style={{ fontWeight: 700 }}>{t.book} <span style={{ fontSize: 11, color: "var(--a2)", fontFamily: "monospace", marginLeft: 6 }}>{t.accessionNo}</span></div>
                       <div style={{ fontSize: 12, color: 'var(--muted)' }}>{t.member} · {t.issueDate} · Due {t.dueDate}</div>
                     </div>
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -141,7 +141,11 @@ export default function IssueReturn({ books, setBooks, members, txns, setTxns, a
                     const st = liveStatus(t as any);
                     return (
                       <tr key={t.id}>
-                        <td data-label="Book & Member"><div style={{ fontWeight: 600 }}>{t.book}</div><div style={{ fontSize: 11, color: "var(--muted)" }}>{t.member}</div></td>
+                        <td data-label="Book & Member">
+                          <div style={{ fontWeight: 600 }}>{t.book}</div>
+                          <div style={{ fontSize: 11, fontFamily: "monospace", color: "var(--a2)" }}>{t.accessionNo}</div>
+                          <div style={{ fontSize: 11, color: "var(--muted)" }}>{t.member}</div>
+                        </td>
                         <td data-label="Issued">{t.issueDate}</td>
                         <td data-label="Due Date">
                           {t.dueDate}

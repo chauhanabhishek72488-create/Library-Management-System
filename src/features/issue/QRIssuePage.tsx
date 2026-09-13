@@ -210,6 +210,7 @@ export default function QRIssuePage({ books, setBooks, members, txns, setTxns, a
       id: 't' + Date.now(),
       bookId: resolvedBook.id,
       book: resolvedBook.title,
+      accessionNo: resolvedBook.accessionNo,
       memberId: resolvedMember.id,
       member: resolvedMember.name,
       issueDate,
