@@ -111,6 +111,7 @@ export interface Transaction {
   id: string;
   bookId: string;
   book: string;
+  accessionNo?: string;
   memberId: string;
   member: string;
   issueDate: string;

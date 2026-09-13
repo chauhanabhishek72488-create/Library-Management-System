@@ -22,7 +22,7 @@ export const MOCK_ADMINS: User[] = [
  * BOOKS_DATA serves as our temporary database table for all books available in the library.
  * Each book object defines basic details like ISBN, Title, Author, Shelf location, and stock (copies/available).
  */
-export const BOOKS_DATA: Book[] = [
+const BASE_BOOKS: Book[] = [
   { id: "b1", accessionNo: "ACC-2026-001", isbn: "978-3-16-148410-0", title: "The Great Gatsby", author: "F. Scott Fitzgerald", author1: "F. Scott Fitzgerald", category: "Fiction", shelf: "A-12", copies: 5, available: 3, emoji: "📗", avgRating: 4.8, publisher: "Scribner", year: 1925, edition: "1st Edition", classificationNo: "813.52", itemType: "Book" },
   { id: "b2", accessionNo: "ACC-2026-002", isbn: "978-0-06-112008-4", title: "To Kill a Mockingbird", author: "Harper Lee", author1: "Harper Lee", category: "Classic", shelf: "A-03", copies: 4, available: 0, emoji: "📘", avgRating: 4.9, publisher: "J.B. Lippincott & Co.", year: 1960, edition: "Anniversary Ed.", classificationNo: "813.54", itemType: "Book" },
   { id: "b3", accessionNo: "ACC-2026-003", isbn: "978-0-7432-7356-5", title: "1984", author: "George Orwell, Erich Fromm", author1: "George Orwell", author2: "Erich Fromm (Foreword)", category: "Dystopia", shelf: "B-07", copies: 6, available: 2, emoji: "📕", avgRating: 4.7, publisher: "Secker & Warburg", year: 1949, edition: "Commemorative Ed.", classificationNo: "823.912", itemType: "Book" },
@@ -30,6 +30,21 @@ export const BOOKS_DATA: Book[] = [
   { id: "b5", accessionNo: "ACC-2026-005", isbn: "978-0-14-028329-7", title: "Brave New World", author: "Aldous Huxley", author1: "Aldous Huxley", category: "Dystopia", shelf: "B-09", copies: 4, available: 1, emoji: "📗", avgRating: 4.5, publisher: "Chatto & Windus", year: 1932, edition: "Revised Ed.", classificationNo: "823.912", itemType: "Book" },
   { id: "b6", accessionNo: "ACC-2026-006", isbn: "978-0-7432-7357-2", title: "The Hobbit", author: "J.R.R. Tolkien, Christopher Tolkien", author1: "J.R.R. Tolkien", author2: "Christopher Tolkien (Editor)", category: "Fantasy", shelf: "C-02", copies: 7, available: 5, emoji: "📘", avgRating: 4.9, publisher: "George Allen & Unwin", year: 1937, edition: "Illustrated Ed.", classificationNo: "823.914", itemType: "Book" },
 ];
+
+export const BOOKS_DATA: Book[] = [];
+let initialAccN = 6;
+BASE_BOOKS.forEach(b => {
+  for (let i = 0; i < b.copies; i++) {
+    const isFirst = i === 0;
+    BOOKS_DATA.push({
+      ...b,
+      id: isFirst ? b.id : `${b.id}_${i + 1}`,
+      accessionNo: isFirst ? b.accessionNo : `ACC-${new Date().getFullYear()}-${String(++initialAccN).padStart(3, "0")}`,
+      copies: 1, // Physical copy model: copies is always 1 per document
+      available: i < b.available ? 1 : 0 // Distribute available count across copies
+    });
+  }
+});
 
 /**
  * NEWSPAPERS_DATA holds daily/weekly newspaper archives.
@@ -87,11 +102,24 @@ export const CATS = ["Fiction", "Classic", "Dystopia", "Fantasy", "Science", "Hi
 /** List of identification documents accepted for membership. */
 export const ID_TYPES = ["Aadhaar Card", "College ID", "Staff ID", "PAN Card", "Driving Licence", "Passport"];
 
-/** Simple counter to keep track of generated Accession Numbers (unique book IDs). */
-export let accN = 6;
+export let accN = initialAccN;
 
 /** Generates the next sequential Accession Number, formatted with the current year (e.g. ACC-2024-007). */
-export const getNextAccN = () => { accN++; return `ACC-${new Date().getFullYear()}-${String(accN).padStart(3, "0")}`; };
+export const getNextAccN = (currentBooks?: Book[]) => { 
+  if (currentBooks && currentBooks.length > 0) {
+    // Find the highest existing accession number to guarantee absolute uniqueness even if deleted
+    const accNums = currentBooks
+      .map(b => b.accessionNo)
+      .filter(a => a.startsWith(`ACC-${new Date().getFullYear()}-`))
+      .map(a => parseInt(a.split('-')[2] || "0", 10))
+      .filter(n => !isNaN(n));
+    if (accNums.length > 0) {
+      accN = Math.max(...accNums, accN);
+    }
+  }
+  accN++; 
+  return `ACC-${new Date().getFullYear()}-${String(accN).padStart(3, "0")}`; 
+};
 
 import { Reservation, Review } from '../types';
 

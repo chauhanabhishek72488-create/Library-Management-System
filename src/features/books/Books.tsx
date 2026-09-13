@@ -25,7 +25,7 @@ export default function Books({ books, setBooks, addToast }: BooksProps) {
   const [showAdd, setShowAdd] = useState(false);
   const [showQR, setShowQR] = useState<Book | null>(null);
   const [printItem, setPrintItem] = useState<any | null>(null);
-  
+
   // Auto-generated Accession number state
   const [autoAccNo, setAutoAccNo] = useState("");
 
@@ -48,7 +48,7 @@ export default function Books({ books, setBooks, addToast }: BooksProps) {
 
   const handleOpenAddModal = () => {
     // Generate new Accession Number automatically
-    const acc = getNextAccN();
+    const acc = getNextAccN(books);
     setAutoAccNo(acc);
     setForm({
       title: "",
@@ -77,18 +77,15 @@ export default function Books({ books, setBooks, addToast }: BooksProps) {
     const lq = q.toLowerCase();
     const authorsStr = (b.authors ? b.authors.join(" ") : (b.author || "")).toLowerCase();
     const classNoStr = (b.classificationNo || "").toLowerCase();
-    return (!q || 
-      b.title.toLowerCase().includes(lq) || 
-      authorsStr.includes(lq) || 
-      b.isbn.includes(lq) || 
+    return (!q ||
+      b.title.toLowerCase().includes(lq) ||
+      authorsStr.includes(lq) ||
+      b.isbn.includes(lq) ||
       b.accessionNo.toLowerCase().includes(lq) ||
       classNoStr.includes(lq)
     ) && (cf === "All" || b.category === cf);
   });
 
-  /**
-   * Adds a new book with multi-author support, classification no, publisher, and accession no.
-   */
   const addBook = () => {
     if (!form.title.trim()) {
       addToast("error", "Book title is required");
@@ -105,33 +102,44 @@ export default function Books({ books, setBooks, addToast }: BooksProps) {
     if (form.author3.trim()) authorsArr.push(form.author3.trim());
 
     const authorSummary = authorsArr.join(", ");
+    
+    const numCopies = +form.copies || 1;
+    const newBooks: Book[] = [];
+    let currentAccNo = autoAccNo;
+    const baseId = "b" + Date.now();
+    const generatedIsbn = form.isbn.trim() || `978-${Math.floor(100 + Math.random() * 900)}-${Math.floor(1000 + Math.random() * 9000)}`;
 
-    const nb: Book = {
-      id: "b" + Date.now(),
-      accessionNo: autoAccNo,
-      title: form.title.trim(),
-      author: authorSummary,
-      author1: form.author1.trim(),
-      author2: form.author2.trim() || undefined,
-      author3: form.author3.trim() || undefined,
-      authors: authorsArr,
-      publisher: form.publisher.trim() || "Independent",
-      edition: form.edition.trim() || "1st Edition",
-      classificationNo: form.classificationNo.trim() || "800.00",
-      isbn: form.isbn.trim() || `978-${Math.floor(100 + Math.random() * 900)}-${Math.floor(1000 + Math.random() * 9000)}`,
-      category: form.category,
-      shelf: form.shelf.trim() || "A-01",
-      copies: +form.copies || 1,
-      available: +form.copies || 1,
-      emoji: form.emoji,
-      year: +form.year || new Date().getFullYear(),
-      avgRating: 0,
-      itemType: "Book"
-    };
+    for (let i = 0; i < numCopies; i++) {
+      newBooks.push({
+        id: i === 0 ? baseId : `${baseId}_${i+1}`,
+        accessionNo: currentAccNo,
+        title: form.title.trim(),
+        author: authorSummary,
+        author1: form.author1.trim(),
+        author2: form.author2.trim() || undefined,
+        author3: form.author3.trim() || undefined,
+        authors: authorsArr,
+        publisher: form.publisher.trim() || "Independent",
+        edition: form.edition.trim() || "1st Edition",
+        classificationNo: form.classificationNo.trim() || "800.00",
+        isbn: generatedIsbn,
+        category: form.category,
+        shelf: form.shelf.trim() || "A-01",
+        copies: 1, // Each document is exactly 1 physical copy
+        available: 1, // Newly added copies are available
+        emoji: form.emoji,
+        year: +form.year || new Date().getFullYear(),
+        avgRating: 0,
+        itemType: "Book"
+      });
+      if (i < numCopies - 1) {
+        currentAccNo = getNextAccN([...books, ...newBooks]);
+      }
+    }
 
-    setBooks([nb, ...books]);
+    setBooks([...newBooks, ...books]);
     setShowAdd(false);
-    addToast("success", `Book "${nb.title}" added with Accession No: ${nb.accessionNo}`);
+    addToast("success", `Added ${numCopies} physical ${numCopies > 1 ? 'copies' : 'copy'} of "${form.title.trim()}"`);
   };
 
   const del = (id: string) => {
@@ -167,22 +175,22 @@ export default function Books({ books, setBooks, addToast }: BooksProps) {
       <div className="no-print" style={{ display: "flex", gap: 10, marginBottom: 18, flexWrap: "wrap" }}>
         <div className="sbar" style={{ flex: 1, minWidth: 220 }}>
           <Icon n="search" s={14} />
-          <input 
-            placeholder="Search title, author 1-3, ISBN, classification, accession…" 
-            value={q} 
-            onChange={e => setQ(e.target.value)} 
+          <input
+            placeholder="Search title, author 1-3, ISBN, classification, accession…"
+            value={q}
+            onChange={e => setQ(e.target.value)}
           />
         </div>
         <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
           {["All", ...CATS.slice(0, 5)].map(c => (
-            <button 
-              key={c} 
-              className="btn bsm" 
-              onClick={() => setCf(c)} 
-              style={{ 
-                background: cf === c ? "var(--accent)" : "var(--surface2)", 
-                color: cf === c ? "#07090f" : "var(--muted)", 
-                border: "1px solid var(--border)" 
+            <button
+              key={c}
+              className="btn bsm"
+              onClick={() => setCf(c)}
+              style={{
+                background: cf === c ? "var(--accent)" : "var(--surface2)",
+                color: cf === c ? "#07090f" : "var(--muted)",
+                border: "1px solid var(--border)"
               }}
             >
               {c}
@@ -204,17 +212,15 @@ export default function Books({ books, setBooks, addToast }: BooksProps) {
               </div>
               <div className="bki">
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                  <span className="acc-no">{b.accessionNo}</span>
-                  {b.classificationNo && (
-                    <span style={{ fontSize: 10, fontFamily: "monospace", color: "var(--a2)", fontWeight: 700 }}>
-                      Class: {b.classificationNo}
-                    </span>
-                  )}
+                  <span className="acc-no" title="Physical Copy Accession Number">{b.accessionNo}</span>
+                  <span style={{ fontSize: 10, fontFamily: "monospace", color: "var(--muted)", fontWeight: 700 }} title="Book Edition ISBN">
+                    ISBN: {b.isbn}
+                  </span>
                 </div>
-                
+
                 <div className="bkt">{b.title}</div>
                 <div className="bka" title={b.author}>{b.author}</div>
-                
+
                 <div style={{ fontSize: 10, color: "var(--muted)", marginBottom: 5, display: "flex", justifyContent: "space-between" }}>
                   <span>Pub: {b.publisher || "N/A"}</span>
                   <span>{b.edition || "1st Ed."}</span>
@@ -262,9 +268,10 @@ export default function Books({ books, setBooks, addToast }: BooksProps) {
                 <div style={{ background: "linear-gradient(135deg,#0d1526,#182040)", borderRadius: 14, padding: 24, border: "1px solid var(--border)", display: "inline-block", width: "100%" }}>
                   <div style={{ fontSize: 18, fontWeight: 700, color: "#fff", marginBottom: 2 }}>{showQR.emoji} {showQR.title}</div>
                   <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 4 }}>{showQR.author} · {showQR.category}</div>
+                  <div style={{ fontSize: 12, color: "var(--a2)", marginBottom: 8, fontFamily: "monospace" }}>ISBN: {showQR.isbn}</div>
                   <span className="acc-no">{showQR.accessionNo}</span>
                   <div style={{ display: "flex", justifyContent: "center", margin: "14px 0" }}>
-                    <div className="qrbox" style={{ width: 130, height: 130 }}><QRCode data={formatBookQR(showQR)} size={120} color="#000" bg="#fff" /></div>
+                    <div className="qrbox" style={{ width: 130, height: 130 }}><QRCode data={showQR.accessionNo} size={120} color="#000" bg="#fff" /></div>
                   </div>
                   <div style={{ fontSize: 11, color: "var(--muted)" }}>Shelf: {showQR.shelf} | Class: {showQR.classificationNo || "800.00"}</div>
                 </div>
@@ -291,7 +298,7 @@ export default function Books({ books, setBooks, addToast }: BooksProps) {
                   <div style={{ fontSize: 11, color: "var(--a3)", fontWeight: 700, textTransform: "uppercase" }}>Auto-Generated Accession No.</div>
                   <div style={{ fontSize: 16, fontWeight: 800, fontFamily: "monospace", color: "var(--a3)" }}>{autoAccNo}</div>
                 </div>
-                <button type="button" className="btn bs bsm" onClick={() => setAutoAccNo(getNextAccN())}>
+                <button type="button" className="btn bs bsm" onClick={() => setAutoAccNo(getNextAccN(books))}>
                   <Icon n="refresh" s={11} /> Regenerate
                 </button>
               </div>

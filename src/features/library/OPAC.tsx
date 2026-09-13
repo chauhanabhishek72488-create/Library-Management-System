@@ -17,6 +17,8 @@ interface OPACProps {
   wishlist: string[];
   setWishlist: (w: string[]) => void;
   user: User;
+  initialShowBook?: Book | null;
+  onClearInitialBook?: () => void;
 }
 
 /**
@@ -24,39 +26,77 @@ interface OPACProps {
  * Global library catalog allowing users to search books, view details, print slips,
  * reserve items, manage wishlist, and submit reviews.
  */
-export default function OPAC({ books, reservations, setReservations, addToast, reviews, setReviews, wishlist, setWishlist, user }: OPACProps) {
+export default function OPAC({
+  books,
+  reservations,
+  setReservations,
+  addToast,
+  reviews,
+  setReviews,
+  wishlist,
+  setWishlist,
+  user,
+  initialShowBook,
+  onClearInitialBook
+}: OPACProps) {
   const [q, setQ] = useState("");
   const [cf, setCf] = useState("All");
-  const [showD, setShowD] = useState<Book | null>(null);
+  const [showD, setShowD] = useState<any | null>(null);
   const [printItem, setPrintItem] = useState<any | null>(null);
   const [rD, setRD] = useState({ r: 0, c: "" });
+
+  React.useEffect(() => {
+    if (initialShowBook) {
+      setShowD(initialShowBook);
+    }
+  }, [initialShowBook]);
+
+  const handleCloseDetail = () => {
+    setShowD(null);
+    if (onClearInitialBook) {
+      onClearInitialBook();
+    }
+  };
 
   const filtered = books.filter(b => {
     const lq = q.toLowerCase();
     const authorsStr = (b.authors ? b.authors.join(" ") : (b.author || "")).toLowerCase();
     const classNoStr = (b.classificationNo || "").toLowerCase();
-    return (!q || 
-      b.title.toLowerCase().includes(lq) || 
-      authorsStr.includes(lq) || 
+    return (!q ||
+      b.title.toLowerCase().includes(lq) ||
+      authorsStr.includes(lq) ||
       b.isbn.includes(lq) ||
       b.accessionNo.toLowerCase().includes(lq) ||
       classNoStr.includes(lq)
     ) && (cf === "All" || b.category === cf);
   });
 
+  const groupedBooks = Array.from(filtered.reduce((acc, b) => {
+    const key = b.isbn || b.title;
+    if (!acc.has(key)) {
+      acc.set(key, { ...b, totalCopies: 1, totalAvailable: b.available > 0 ? 1 : 0, physicalCopies: [b] });
+    } else {
+      const existing = acc.get(key)!;
+      existing.totalCopies += 1;
+      if (b.available > 0) existing.totalAvailable += 1;
+      existing.physicalCopies.push(b);
+    }
+    return acc;
+  }, new Map<string, any>()).values());
+
   const resB = (bk: Book) => {
     if (reservations.find(r => r.bookId === bk.id && r.memberName === user.name && r.status === "Active")) {
       return addToast("error", "You already hold an active reservation for this item.");
     }
     const dt = new Date(); dt.setDate(dt.getDate() + 2);
-    setReservations([{ 
-      id: "r" + Date.now(), 
-      bookId: bk.id, 
-      bookTitle: bk.title, 
-      memberName: user.name, 
-      date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" }), 
-      status: "Active", 
-      expiresDate: dt.toLocaleDateString("en-US", { month: "short", day: "numeric" }) 
+    setReservations([{
+      id: "r" + Date.now(),
+      bookId: bk.id,
+      bookTitle: bk.title,
+      memberName: user.name,
+      date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+      status: "Active",
+      expiresDate: dt.toLocaleDateString("en-US", { month: "short", day: "numeric" })
     }, ...reservations]);
     addToast("success", `Reservation queued for "${bk.title}". Valid for 48 hrs.`);
     setShowD(null);
@@ -64,27 +104,27 @@ export default function OPAC({ books, reservations, setReservations, addToast, r
 
   const tgW = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (wishlist.includes(id)) { 
-      setWishlist(wishlist.filter(x => x !== id)); 
-      addToast("success", "Removed from wishlist"); 
-    } else { 
-      setWishlist([...wishlist, id]); 
-      addToast("success", "Added to wishlist"); 
+    if (wishlist.includes(id)) {
+      setWishlist(wishlist.filter(x => x !== id));
+      addToast("success", "Removed from wishlist");
+    } else {
+      setWishlist([...wishlist, id]);
+      addToast("success", "Added to wishlist");
     }
   };
 
   const addRev = (bId: string) => {
     if (!rD.r) return addToast("error", "Please select a star rating.");
     const revs = reviews[bId] || [];
-    setReviews({ 
-      ...reviews, 
-      [bId]: [{ 
-        id: "rv" + Date.now(), 
-        user: user.name, 
-        rating: rD.r, 
-        comment: rD.c, 
-        date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" }) 
-      }, ...revs] 
+    setReviews({
+      ...reviews,
+      [bId]: [{
+        id: "rv" + Date.now(),
+        user: user.name,
+        rating: rD.r,
+        comment: rD.c,
+        date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" })
+      }, ...revs]
     });
     addToast("success", "Review submitted!");
     setRD({ r: 0, c: "" });
@@ -106,26 +146,26 @@ export default function OPAC({ books, reservations, setReservations, addToast, r
         <div style={{ flex: 1, minWidth: 240 }}>
           <div className="sbar" style={{ width: "100%", padding: "12px 18px" }}>
             <Icon n="search" s={16} />
-            <input 
-              placeholder="Search by title, author 1-3, ISBN, classification, accession…" 
-              value={q} 
-              onChange={e => setQ(e.target.value)} 
-              style={{ fontSize: 15 }} 
+            <input
+              placeholder="Search by title, author 1-3, ISBN, classification, accession…"
+              value={q}
+              onChange={e => setQ(e.target.value)}
+              style={{ fontSize: 15 }}
             />
           </div>
         </div>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
           {["All", ...CATS.slice(0, 5)].map(c => (
-            <button 
-              key={c} 
-              className="btn bsm" 
-              onClick={() => setCf(c)} 
-              style={{ 
-                background: cf === c ? "var(--accent)" : "var(--surface2)", 
-                color: cf === c ? "#07090f" : "var(--muted)", 
-                border: "1px solid var(--border)", 
-                padding: "8px 14px", 
-                borderRadius: 20 
+            <button
+              key={c}
+              className="btn bsm"
+              onClick={() => setCf(c)}
+              style={{
+                background: cf === c ? "var(--accent)" : "var(--surface2)",
+                color: cf === c ? "#07090f" : "var(--muted)",
+                border: "1px solid var(--border)",
+                padding: "8px 14px",
+                borderRadius: 20
               }}
             >
               {c}
@@ -133,11 +173,11 @@ export default function OPAC({ books, reservations, setReservations, addToast, r
           ))}
         </div>
       </div>
-      
+
       <div className="bkg">
-        {filtered.map(b => (
-          <div key={b.id} className="bkc opac-card" onClick={() => setShowD(b)}>
-            <div className="bkcov" style={{ background: `linear-gradient(135deg,${b.available > 0 ? "rgba(69,201,160,.08)" : "rgba(224,92,92,.08)"},var(--surface2))` }}>
+        {groupedBooks.map(b => (
+          <div key={b.isbn || b.id} className="bkc opac-card" onClick={() => setShowD(b)}>
+            <div className="bkcov" style={{ background: `linear-gradient(135deg,${b.totalAvailable > 0 ? "rgba(69,201,160,.08)" : "rgba(224,92,92,.08)"},var(--surface2))` }}>
               <div className="bk-cover-box">
                 <span className="bk-emoji">{b.emoji}</span>
               </div>
@@ -146,13 +186,13 @@ export default function OPAC({ books, reservations, setReservations, addToast, r
               </button>
             </div>
             <div className="bki">
-              <span className={`badge ${b.available > 0 ? "bg" : "br"}`} style={{ position: "absolute", top: -14, left: 16, border: "2px solid var(--surface)", zIndex: 10 }}>
-                {b.available > 0 ? "Available" : "Checked Out"}
+              <span className={`badge ${b.totalAvailable > 0 ? "bg" : "br"}`} style={{ position: "absolute", top: -14, left: 16, border: "2px solid var(--surface)", zIndex: 10 }}>
+                {b.totalAvailable > 0 ? `${b.totalAvailable} Available` : "Checked Out"}
               </span>
               <div className="bkt" style={{ marginTop: 12 }}>{b.title}</div>
               <div className="bka">{b.author}</div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 8 }}>
-                <span className="acc-no">{b.accessionNo}</span>
+                <span style={{ fontSize: 11, color: "var(--muted)", fontFamily: "monospace" }}>ISBN: {b.isbn}</span>
                 {b.classificationNo && <span style={{ fontSize: 10, color: "var(--a2)", fontFamily: "monospace" }}>Class: {b.classificationNo}</span>}
               </div>
             </div>
@@ -162,21 +202,21 @@ export default function OPAC({ books, reservations, setReservations, addToast, r
 
       {/* Item Details Dialog */}
       {showD && (
-        <div className="mo" onClick={e => e.target === e.currentTarget && setShowD(null)}>
+        <div className="mo" onClick={e => e.target === e.currentTarget && handleCloseDetail()}>
           <div className="mbox flex-responsive" style={{ maxWidth: 720, padding: 0, overflow: "hidden" }}>
-            <div style={{ width: 240, background: `linear-gradient(135deg,${showD.available > 0 ? "rgba(69,201,160,.1)" : "rgba(224,92,92,.1)"},var(--surface2))`, display: "flex", flexDirection: "column", alignItems: "center", padding: 30 }}>
+            <div style={{ width: 240, background: `linear-gradient(135deg,${showD.totalAvailable > 0 ? "rgba(69,201,160,.1)" : "rgba(224,92,92,.1)"},var(--surface2))`, display: "flex", flexDirection: "column", alignItems: "center", padding: 30 }}>
               <span style={{ fontSize: 80, marginBottom: 20 }}>{showD.emoji}</span>
               <div className="qrbox" style={{ width: 100, height: 100, marginTop: "auto" }}>
-                <QRCode data={formatBookQR(showD)} size={90} color="#000" bg="#fff" />
+                <QRCode data={showD.isbn} size={90} color="#000" bg="#fff" />
               </div>
-              <div style={{ fontSize: 10, color: "var(--muted)", marginTop: 8, opacity: 0.8, fontFamily: "monospace" }}>{showD.accessionNo}</div>
+              <div style={{ fontSize: 10, color: "var(--muted)", marginTop: 8, opacity: 0.8, fontFamily: "monospace" }}>ISBN: {showD.isbn}</div>
             </div>
-            
+
             <div style={{ flex: 1, padding: "26px", display: "flex", flexDirection: "column", maxHeight: "85vh", overflowY: "auto" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                 <div>
-                  <span className={`badge ${showD.available > 0 ? "bg" : "br"}`} style={{ display: "inline-block", marginBottom: 8 }}>
-                    {showD.available > 0 ? `${showD.available} of ${showD.copies} copies available` : "Currently Unavailable"}
+                  <span className={`badge ${showD.totalAvailable > 0 ? "bg" : "br"}`} style={{ display: "inline-block", marginBottom: 8 }}>
+                    {showD.totalAvailable > 0 ? `${showD.totalAvailable} of ${showD.totalCopies} copies available` : "Currently Unavailable"}
                   </span>
                   <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 26, fontWeight: 700, color: "#fff", lineHeight: 1.1, marginBottom: 6 }}>
                     {showD.title}
@@ -190,14 +230,14 @@ export default function OPAC({ books, reservations, setReservations, addToast, r
                   <button className="ibtn" onClick={(e) => tgW(showD.id, e as any)} style={{ border: "1px solid var(--border)" }}>
                     <Icon n={wishlist.includes(showD.id) ? "heartfull" : "heart"} s={15} />
                   </button>
-                  <button className="ibtn" onClick={() => setShowD(null)}><Icon n="x" /></button>
+                  <button className="ibtn" onClick={handleCloseDetail}><Icon n="x" /></button>
                 </div>
               </div>
-              
+
               <div className="grid-form-responsive" style={{ margin: "18px 0", gap: 10 }}>
                 <div style={{ padding: 10, background: "rgba(255,255,255,.03)", borderRadius: 8 }}>
-                  <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 2 }}>Accession No.</div>
-                  <div style={{ fontWeight: 700, fontFamily: "monospace", color: "var(--a3)" }}>{showD.accessionNo}</div>
+                  <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 2 }}>ISBN Number</div>
+                  <div style={{ fontWeight: 700, fontFamily: "monospace", color: "var(--a3)" }}>{showD.isbn}</div>
                 </div>
                 <div style={{ padding: 10, background: "rgba(255,255,255,.03)", borderRadius: 8 }}>
                   <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 2 }}>Classification No.</div>
@@ -213,8 +253,23 @@ export default function OPAC({ books, reservations, setReservations, addToast, r
                 </div>
               </div>
 
+              {/* Physical Copies List */}
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 8, color: "var(--muted)" }}>Library Physical Copies</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {(showD.physicalCopies || []).map((copy: any) => (
+                    <div key={copy.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", background: "rgba(255,255,255,.02)", border: "1px solid var(--border)", borderRadius: 6 }}>
+                      <span className="acc-no" style={{ fontSize: 12 }}>{copy.accessionNo}</span>
+                      <span className={`badge ${copy.available > 0 ? "bg" : "br"}`} style={{ fontSize: 10, padding: "2px 6px" }}>
+                        {copy.available > 0 ? "Available" : "Checked Out"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               <div style={{ marginTop: 10, display: "flex", gap: 10 }} className="no-print">
-                {showD.available > 0 ? (
+                {showD.totalAvailable > 0 ? (
                   <button className="btn bp" style={{ flex: 1, padding: "12px 18px", fontSize: 14 }} onClick={() => resB(showD)}>
                     <Icon n="bookmark" s={15} /> Reserve Copy (48hrs)
                   </button>
@@ -241,7 +296,7 @@ export default function OPAC({ books, reservations, setReservations, addToast, r
                   </div>
                   <button className="btn bs" onClick={() => addRev(showD.id)} style={{ alignSelf: "flex-end", height: 38 }}>Post</button>
                 </div>
-                
+
                 <div style={{ display: "flex", flexDirection: "column", gap: 10, maxHeight: 150, overflowY: "auto" }}>
                   {(reviews[showD.id] || []).map(r => (
                     <div key={r.id} style={{ padding: 10, background: "rgba(255,255,255,.02)", borderRadius: 8 }}>
