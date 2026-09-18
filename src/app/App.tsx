@@ -204,7 +204,7 @@ export default function App() {
     const params = new URLSearchParams(window.location.search);
     const bookId = params.get('bookId');
     if (bookId && books.length > 0) {
-      const foundBook = books.find(b => b.id === bookId || (b as any).accessionNo === bookId);
+      const foundBook = books.find(b => b.id === bookId || b.accessionNo === bookId || b.isbn === bookId);
       if (foundBook) {
         setScannedBook(foundBook);
         setPage("opac");
@@ -233,8 +233,29 @@ export default function App() {
   const logout = () => { auth.signOut(); setUser(null); setPage("dashboard"); };
 
   const handleScanSuccess = (decodedText: string) => {
-    // Find the book with this unique ID or accession number
-    const foundBook = books.find(b => b.id === decodedText || (b as any).accessionNo === decodedText);
+    let searchText = decodedText.trim();
+    
+    // Parse formatted QR payload like "Accession No: ACC-2026-001"
+    const accMatch = searchText.match(/Accession\s*No\s*[:=]\s*(.+)/i);
+    if (accMatch) {
+      searchText = accMatch[1].trim();
+    }
+
+    // Try URL-based match
+    try {
+      if (searchText.startsWith('http://') || searchText.startsWith('https://')) {
+        const url = new URL(searchText);
+        const bookId = url.searchParams.get('bookId');
+        if (bookId) searchText = bookId;
+      }
+    } catch (e) { /* not a URL */ }
+
+    // Find the book by id, accession number, or ISBN
+    const foundBook = books.find(b => 
+      b.id === searchText || 
+      b.accessionNo.toLowerCase() === searchText.toLowerCase() ||
+      b.isbn === searchText
+    );
     if (foundBook) {
       addToast("success", `Found book: ${foundBook.title}`);
       setScannedBook(foundBook);

@@ -39,6 +39,18 @@ export default function QRScanner({ onScanSuccess, onClose }: QRScannerProps) {
           console.warn("Failed to parse scanned text as URL:", e);
         }
 
+        // Parse formatted QR payload like "Accession No: ACC-2026-001"
+        const accMatch = parsedText.match(/Accession\s*No\s*[:=]\s*(.+)/i);
+        if (accMatch) {
+          parsedText = accMatch[1].trim();
+        }
+
+        // Parse formatted member QR payload like "Member ID: LIB-2024-001"
+        const memMatch = parsedText.match(/Member\s*ID\s*[:=]\s*(.+)/i);
+        if (memMatch) {
+          parsedText = memMatch[1].trim();
+        }
+
         // Success callback
         onScanSuccess(parsedText);
         try {

@@ -33,13 +33,23 @@ function resolveMember(raw: string, members: Member[]): Member | null {
 /** Resolve a book from QR text or manual input */
 function resolveBook(raw: string, books: Book[]): Book | null {
   if (!raw) return null;
-  const s = raw.toLowerCase().trim();
+  let s = raw.toLowerCase().trim();
+
+  // Parse formatted QR payload like "Accession No: ACC-2026-001"
+  const accMatch = s.match(/accession\s*no\s*[:=]\s*(.+)/i);
+  if (accMatch) {
+    s = accMatch[1].trim().toLowerCase();
+  }
 
   // 1. Try exact match first
   const exact = books.find(b => b.accessionNo && b.accessionNo.toLowerCase() === s);
   if (exact) return exact;
 
-  // 2. Try includes match for complex payloads
+  // 2. Try ISBN exact match
+  const isbnMatch = books.find(b => b.isbn && b.isbn.toLowerCase() === s);
+  if (isbnMatch) return isbnMatch;
+
+  // 3. Try includes match for complex payloads
   return books.find(b => b.accessionNo && s.includes(b.accessionNo.toLowerCase())) || null;
 }
 

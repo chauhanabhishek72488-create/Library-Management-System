@@ -32,14 +32,14 @@ const BASE_BOOKS: Book[] = [
 ];
 
 export const BOOKS_DATA: Book[] = [];
-let initialAccN = 6;
+let initialAccN = 0;
 BASE_BOOKS.forEach(b => {
   for (let i = 0; i < b.copies; i++) {
-    const isFirst = i === 0;
+    initialAccN++;
     BOOKS_DATA.push({
       ...b,
-      id: isFirst ? b.id : `${b.id}_${i + 1}`,
-      accessionNo: isFirst ? b.accessionNo : `ACC-${new Date().getFullYear()}-${String(++initialAccN).padStart(3, "0")}`,
+      id: `${b.id}_${initialAccN}`,
+      accessionNo: `ACC-${new Date().getFullYear()}-${String(initialAccN).padStart(3, "0")}`,
       copies: 1, // Physical copy model: copies is always 1 per document
       available: i < b.available ? 1 : 0 // Distribute available count across copies
     });
@@ -91,9 +91,9 @@ export const MEMBERS_DATA: Member[] = [
  * It links a specific book to a specific member along with issue and due dates.
  */
 export const TXNS_DATA: Transaction[] = [
-  { id: "t1", bookId: "b2", book: "To Kill a Mockingbird", memberId: "m1", member: "Priya Sharma", issueDate: "2026-03-01", dueDate: "2026-03-15", returnDate: null, status: "Overdue", fine: 0 },
-  { id: "t2", bookId: "b3", book: "1984", memberId: "m4", member: "Rahul Gupta", issueDate: "2026-03-20", dueDate: "2026-04-03", returnDate: null, status: "Issued", fine: 0 },
-  { id: "t3", bookId: "b1", book: "The Great Gatsby", memberId: "m2", member: "Arjun Mehta", issueDate: "2026-03-05", dueDate: "2026-03-19", returnDate: "2026-03-18", status: "Returned", fine: 0 },
+  { id: "t1", bookId: "b2_6", book: "To Kill a Mockingbird", memberId: "m1", member: "Priya Sharma", issueDate: "2026-03-01", dueDate: "2026-03-15", returnDate: null, status: "Overdue", fine: 0 },
+  { id: "t2", bookId: "b3_10", book: "1984", memberId: "m4", member: "Rahul Gupta", issueDate: "2026-03-20", dueDate: "2026-04-03", returnDate: null, status: "Issued", fine: 0 },
+  { id: "t3", bookId: "b1_1", book: "The Great Gatsby", memberId: "m2", member: "Arjun Mehta", issueDate: "2026-03-05", dueDate: "2026-03-19", returnDate: "2026-03-18", status: "Returned", fine: 0 },
 ];
 
 /** List of available book categories/genres. */
@@ -128,7 +128,7 @@ import { Reservation, Review } from '../types';
  * When a book isn't available, members can reserve it to pick it up later.
  */
 export const RESERVATIONS_DATA: Reservation[] = [
-  { id: "r1", bookId: "b2", bookTitle: "To Kill a Mockingbird", memberName: "Priya Sharma", date: "Mar 20", expiresDate: "Mar 27", status: "Active" },
+  { id: "r1", bookId: "b2_6", bookTitle: "To Kill a Mockingbird", memberName: "Priya Sharma", date: "Mar 20", expiresDate: "Mar 27", status: "Active" },
 ];
 
 /**
@@ -144,7 +144,7 @@ export const NOTIFICATIONS_LOG = [
  * The object uses the book's ID (e.g. "b1") as the key to look up an array of reviews.
  */
 export const REVIEWS_INIT: Record<string, Review[]> = {
-  "b1": [
+  "b1_1": [
     { id: "rev1", user: "Priya Sharma", rating: 5, comment: "Masterpiece!", date: "Mar 10" }
   ]
 };

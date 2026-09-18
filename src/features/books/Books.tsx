@@ -72,6 +72,9 @@ export default function Books({ books, setBooks, addToast }: BooksProps) {
     setForm(f => ({ ...f, [k]: e.target.value }));
   };
 
+  // State for viewing individual copies of a grouped book
+  const [showCopies, setShowCopies] = useState<{ title: string; copies: Book[] } | null>(null);
+
   // Filter books safely
   const filtered = books.filter(b => {
     const lq = q.toLowerCase();
@@ -85,6 +88,20 @@ export default function Books({ books, setBooks, addToast }: BooksProps) {
       classNoStr.includes(lq)
     ) && (cf === "All" || b.category === cf);
   });
+
+  // Group filtered books by ISBN/title so multiple copies show as one card
+  const groupedBooks = Array.from(filtered.reduce((acc, b) => {
+    const key = b.isbn || b.title;
+    if (!acc.has(key)) {
+      acc.set(key, { ...b, totalCopies: 1, totalAvailable: b.available > 0 ? 1 : 0, physicalCopies: [b] });
+    } else {
+      const existing = acc.get(key)!;
+      existing.totalCopies += 1;
+      if (b.available > 0) existing.totalAvailable += 1;
+      existing.physicalCopies.push(b);
+    }
+    return acc;
+  }, new Map<string, any>()).values());
 
   const addBook = () => {
     if (!form.title.trim()) {
@@ -159,7 +176,7 @@ export default function Books({ books, setBooks, addToast }: BooksProps) {
       <div className="sh">
         <div>
           <div className="st">Book Catalog</div>
-          <div className="ss">{books.length} total titles · Classification & Accession Managed</div>
+          <div className="ss">{groupedBooks.length} unique titles · {books.length} total copies · Classification & Accession Managed</div>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           <button className="btn bs bsm no-print" onClick={handlePrintCatalog}>
@@ -199,23 +216,32 @@ export default function Books({ books, setBooks, addToast }: BooksProps) {
         </div>
       </div>
 
-      {/* Book Grid View */}
+      {/* Book Grid View — Grouped by ISBN/Title */}
       <div id="books-print-area">
         <div className="bkg">
-          {filtered.map(b => (
-            <div key={b.id} className="bkc">
-              <div className="bkcov" style={{ background: `linear-gradient(135deg,${b.available > 0 ? "rgba(69,201,160,.08)" : "rgba(224,92,92,.08)"},var(--surface2))` }}>
+          {groupedBooks.map((b: any) => (
+            <div key={b.isbn || b.id} className="bkc">
+              <div className="bkcov" style={{ background: `linear-gradient(135deg,${b.totalAvailable > 0 ? "rgba(69,201,160,.08)" : "rgba(224,92,92,.08)"},var(--surface2))` }}>
                 <div className="bk-cover-box">
                   <span className="bk-emoji">{b.emoji}</span>
                 </div>
-                <div className="bkdot" style={{ background: b.available > 0 ? "var(--a3)" : "var(--danger)" }} />
+                <div className="bkdot" style={{ background: b.totalAvailable > 0 ? "var(--a3)" : "var(--danger)" }} />
+                {b.totalCopies > 1 && (
+                  <div style={{ position: "absolute", top: 8, right: 8, background: "rgba(79,126,247,.85)", color: "#fff", fontSize: 10, fontWeight: 800, padding: "2px 8px", borderRadius: 12, backdropFilter: "blur(4px)" }}>
+                    {b.totalCopies} copies
+                  </div>
+                )}
               </div>
               <div className="bki">
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                  <span className="acc-no" title="Physical Copy Accession Number">{b.accessionNo}</span>
                   <span style={{ fontSize: 10, fontFamily: "monospace", color: "var(--muted)", fontWeight: 700 }} title="Book Edition ISBN">
                     ISBN: {b.isbn}
                   </span>
+                  {b.classificationNo && (
+                    <span style={{ fontSize: 10, fontFamily: "monospace", color: "var(--a2)", fontWeight: 700 }} title="Classification Number">
+                      Class: {b.classificationNo}
+                    </span>
+                  )}
                 </div>
 
                 <div className="bkt">{b.title}</div>
@@ -234,18 +260,18 @@ export default function Books({ books, setBooks, addToast }: BooksProps) {
                 )}
 
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 8 }}>
-                  <span className={`badge ${b.available > 0 ? "bg" : "br"}`}>
-                    {b.available > 0 ? `${b.available} avail.` : "Issued"}
+                  <span className={`badge ${b.totalAvailable > 0 ? "bg" : "br"}`}>
+                    {b.totalAvailable > 0 ? `${b.totalAvailable} / ${b.totalCopies} Available` : "All Issued"}
                   </span>
                   <div style={{ display: "flex", gap: 4 }} className="no-print">
-                    <button className="btn bs bsm" onClick={() => setPrintItem({ ...b, type: "BOOK TAG" })} title="Print Book Accession Slip">
+                    <button className="btn bs bsm" onClick={() => setShowCopies({ title: b.title, copies: b.physicalCopies })} title="View All Copies">
+                      <Icon n="book" s={11} />
+                    </button>
+                    <button className="btn bs bsm" onClick={() => setPrintItem({ ...b, type: "BOOK TAG" })} title="Print Book Tag">
                       <Icon n="printer" s={11} />
                     </button>
                     <button className="btn bs bsm" onClick={() => setShowQR(b)} title="View QR">
                       <Icon n="qr" s={11} />
-                    </button>
-                    <button className="btn bd bsm" onClick={() => del(b.id)} title="Delete Book">
-                      <Icon n="trash" s={11} />
                     </button>
                   </div>
                 </div>
@@ -254,6 +280,63 @@ export default function Books({ books, setBooks, addToast }: BooksProps) {
           ))}
         </div>
       </div>
+
+      {/* View Copies Modal — Shows all physical copies with unique accession numbers */}
+      {showCopies && (
+        <div className="mo" onClick={e => e.target === e.currentTarget && setShowCopies(null)}>
+          <div className="mbox" style={{ maxWidth: 520 }}>
+            <div className="mh">
+              <div className="mt" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <Icon n="book" s={18} /> {showCopies.title} — Physical Copies
+              </div>
+              <button className="ibtn" onClick={() => setShowCopies(null)}><Icon n="x" /></button>
+            </div>
+            <div className="mb">
+              <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 12 }}>
+                Each copy has a unique Accession Number. Total: {showCopies.copies.length} copies.
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 400, overflowY: "auto" }}>
+                {showCopies.copies.map((copy: Book, idx: number) => (
+                  <div key={copy.id} style={{
+                    display: "flex", justifyContent: "space-between", alignItems: "center",
+                    padding: "10px 14px", background: "rgba(255,255,255,.03)",
+                    border: "1px solid var(--border)", borderRadius: 8,
+                    transition: "all .2s"
+                  }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <div style={{
+                        width: 28, height: 28, borderRadius: "50%", display: "flex",
+                        alignItems: "center", justifyContent: "center", fontSize: 12,
+                        fontWeight: 800, background: "var(--surface2)", color: "var(--muted)",
+                        border: "1px solid var(--border)"
+                      }}>
+                        {idx + 1}
+                      </div>
+                      <div>
+                        <span className="acc-no" style={{ fontSize: 13 }}>{copy.accessionNo}</span>
+                        <div style={{ fontSize: 10, color: "var(--muted)", marginTop: 2 }}>Shelf: {copy.shelf}</div>
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span className={`badge ${copy.available > 0 ? "bg" : "br"}`} style={{ fontSize: 10, padding: "2px 8px" }}>
+                        {copy.available > 0 ? "Available" : "Issued"}
+                      </span>
+                      <div style={{ display: "flex", gap: 4 }} className="no-print">
+                        <button className="btn bs bsm" onClick={() => { setShowCopies(null); setShowQR(copy); }} title="View QR">
+                          <Icon n="qr" s={11} />
+                        </button>
+                        <button className="btn bd bsm" onClick={() => del(copy.id)} title="Delete Copy">
+                          <Icon n="trash" s={11} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* QR Code Dialog */}
       {showQR && (
