@@ -3,6 +3,7 @@ import '../styles/index.css';
 
 // Firebase
 import { auth, db, seedInitialDataIfEmpty } from '../utils/firebase';
+import { ensureFirestoreSeeded, syncSaveMember } from '../services/firestoreSync';
 import { onAuthStateChanged } from 'firebase/auth';
 import { collection, doc, getDoc, onSnapshot } from 'firebase/firestore';
 
@@ -46,7 +47,13 @@ import QRScannerModal from '../components/ui/QRScannerModal';
 export default function App() {
   // --- APPLICATION STATE ---
   // `user` holds who is currently logged in. If null, we show the Login page.
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<User | null>(() => {
+    try {
+      const saved = localStorage.getItem("library_user_session");
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return null;
+  });
   // UI State for dark mode toggle, active page navigation, and mobile menu open/close
   const [dark, setDark] = useState(true);
   const [page, setPage] = useState("dashboard");
@@ -91,6 +98,7 @@ export default function App() {
       if (exists) return prev.map(m => (m.memberId === newMember.memberId || m.email === newMember.email) ? { ...m, ...newMember } : m);
       return [newMember, ...prev];
     });
+    syncSaveMember(newMember);
   };
 
   useEffect(() => {
@@ -102,9 +110,6 @@ export default function App() {
   }, [dark]);
 
   useEffect(() => {
-    // Attempt auto-seeding mock data in Firestore if blank
-    seedInitialDataIfEmpty();
-
     const unsubAuth = onAuthStateChanged(auth, async (fbUser) => {
       if (fbUser) {
         const email = fbUser.email || "";
@@ -127,8 +132,14 @@ export default function App() {
           localStorage.setItem("library_user_session", JSON.stringify(loggedUser));
         } catch (e) { }
         setUser(loggedUser);
+
+        // Ensure database has baseline catalog once user is authenticated
+        ensureFirestoreSeeded();
       } else {
-        // If not authenticated in firebase, keep local session if valid
+        // If logged out from Firebase, clear stored session
+        try {
+          localStorage.removeItem("library_user_session");
+        } catch (e) {}
         setUser(null);
       }
     });
@@ -164,7 +175,14 @@ export default function App() {
     const unsubTxns = onSnapshot(collection(db, "transactions"), (snapshot) => {
       const list: Transaction[] = [];
       snapshot.forEach(doc => list.push({ id: doc.id, ...doc.data() } as Transaction));
-      if (list.length > 0) setTxns(list);
+      if (list.length > 0) {
+        list.sort((a, b) => {
+          const numA = parseInt(a.id.replace(/\D/g, "")) || 0;
+          const numB = parseInt(b.id.replace(/\D/g, "")) || 0;
+          return numB - numA;
+        });
+        setTxns(list);
+      }
     }, (err) => console.warn("Firestore txns snapshot error:", err));
 
     const unsubReservations = onSnapshot(collection(db, "reservations"), (snapshot) => {
@@ -342,7 +360,7 @@ export default function App() {
     if (page === "books") return <Books books={books} setBooks={setBooks} addToast={addToast} />;
     if (page === "periodicals") return <Periodicals addToast={addToast} isAdmin={true} />;
     if (page === "articles") return <Articles addToast={addToast} isAdmin={true} />;
-    if (page === "members") return <Members members={members} setMembers={setMems} addToast={addToast} />;
+    if (page === "members") return <Members members={members} setMembers={updateMembersState} addToast={addToast} />;
     if (page === "issue") return <IssueReturn books={books} setBooks={setBooks} members={members} txns={txns} setTxns={setTxns} addToast={addToast} />;
     if (page === "qrscan") return <QRIssuePage books={books} setBooks={setBooks} members={members} txns={txns} setTxns={setTxns} addToast={addToast} />;
     if (page === "opac") return <OPAC books={books} reservations={reservations} setReservations={setReservations} addToast={addToast} reviews={reviews} setReviews={setReviews} wishlist={wishlist} setWishlist={setWishlist} user={user} />;

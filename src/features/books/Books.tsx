@@ -6,6 +6,7 @@ import PrintModal from '../../components/ui/PrintModal';
 import { Book } from '../../types';
 import { CATS, getNextAccN } from '../../data/mockData';
 import { formatBookQR } from '../../utils/qrHelper';
+import { syncAddBooks, syncDeleteBook } from '../../services/firestoreSync';
 
 interface BooksProps {
   books: Book[];
@@ -155,12 +156,14 @@ export default function Books({ books, setBooks, addToast }: BooksProps) {
     }
 
     setBooks([...newBooks, ...books]);
+    syncAddBooks(newBooks);
     setShowAdd(false);
     addToast("success", `Added ${numCopies} physical ${numCopies > 1 ? 'copies' : 'copy'} of "${form.title.trim()}"`);
   };
 
   const del = (id: string) => {
     setBooks(books.filter(b => b.id !== id));
+    syncDeleteBook(id);
     addToast("success", "Book removed.");
   };
 

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import Icon from '../../components/ui/Icon';
 import Stars from '../../components/ui/Stars';
 import { User, Book, Transaction, Review } from '../../types';
+import { syncAddReview } from '../../services/firestoreSync';
 
 interface ReadingHistoryProps {
   user: User;
@@ -39,7 +40,15 @@ export default function ReadingHistory({ user, txns, books, wishlist, setWishlis
     const d = rD[bId];
     if (!d || !d.r) return addToast("error", "Please select a star rating");
     const revs = reviews[bId] || [];
-    setReviews({ ...reviews, [bId]: [{ id: "rv" + Date.now(), user: user.name, rating: d.r, comment: d.c || "", date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" }) }, ...revs] });
+    const newRev: Review = {
+      id: "rv" + Date.now(),
+      user: user.name,
+      rating: d.r,
+      comment: d.c || "",
+      date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" })
+    };
+    setReviews({ ...reviews, [bId]: [newRev, ...revs] });
+    syncAddReview(bId, newRev);
     addToast("success", "Review submitted!");
     setRD({ ...rD, [bId]: { r: 0, c: "" } });
   };

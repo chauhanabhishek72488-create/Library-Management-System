@@ -1,6 +1,7 @@
 import React from 'react';
 import Icon from '../../components/ui/Icon';
 import { Book, Member, Reservation } from '../../types';
+import { syncUpdateReservationStatus } from '../../services/firestoreSync';
 
 interface ReservationsProps {
   reservations: Reservation[];
@@ -21,6 +22,7 @@ export default function Reservations({ reservations, setReservations, books, mem
   /** Helper to change the status of a specific reservation to Fulfilled or Cancelled */
   const mngR = (id: string, st: "Fulfilled" | "Cancelled") => {
     setReservations(reservations.map(r => r.id === id ? { ...r, status: st } : r));
+    syncUpdateReservationStatus(id, st);
     addToast("success", `Reservation ${st.toLowerCase()}`);
   };
 

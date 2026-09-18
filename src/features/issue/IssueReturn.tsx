@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import Icon from '../../components/ui/Icon';
 import { Book, Member, Transaction } from '../../types';
 import { calcFine, liveStatus } from '../../utils/helpers';
+import { syncIssueBook, syncReturnBook, syncRenewBook } from '../../services/firestoreSync';
 
 interface IssueReturnProps {
   books: Book[];
@@ -25,8 +26,8 @@ export default function IssueReturn({ books, setBooks, members, txns, setTxns, a
   const recentIssues = [...txns].filter(t => t.status !== "Returned").sort((a, b) => parseInt(b.id.replace(/\D/g, "")) - parseInt(a.id.replace(/\D/g, ""))).slice(0, 5);
 
   /**
-   * Action handler: Looks up member and book, validates if they can borrow it,
-   * then reduces the current stock of that book and creates a new active Transaction record.
+   * Action handler: Validates data, deducts 1 quantity from book,
+   * adds a ledger entry in Transactions history, and syncs to Firestore.
    */
   const issueB = () => {
     const bk = books.find(b => b.accessionNo.toLowerCase() === bAcc.toLowerCase());
@@ -46,24 +47,50 @@ export default function IssueReturn({ books, setBooks, members, txns, setTxns, a
     const issueDate = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" });
     const dueDate = dd.toLocaleDateString("en-US", { month: "short", day: "numeric" });
     
-    // Add transaction to history
-    setTxns([{ id: "t" + Date.now(), bookId: bk.id, book: bk.title, accessionNo: bk.accessionNo, memberId: mb.id, member: mb.name, issueDate, dueDate, returnDate: null, status: "Issued", fine: 0, renewed: false }, ...txns]);
+    const newTxn: Transaction = {
+      id: "t" + Date.now(),
+      bookId: bk.id,
+      book: bk.title,
+      accessionNo: bk.accessionNo,
+      memberId: mb.memberId || mb.id,
+      member: mb.name,
+      issueDate,
+      dueDate,
+      returnDate: null,
+      status: "Issued",
+      fine: 0,
+      renewed: false
+    };
+
+    // Add transaction to history locally
+    setTxns([newTxn, ...txns]);
     
     // Deplete stock of book locally
-    setBooks(books.map(b => b.id === bk.id ? { ...b, available: b.available - 1 } : b));
+    const newAvail = Math.max(0, bk.available - 1);
+    setBooks(books.map(b => b.id === bk.id ? { ...b, available: newAvail } : b));
+    
+    // Sync to Firestore cloud database
+    syncIssueBook(newTxn, bk.id, newAvail);
+
     addToast("success", `Issued "${bk.title}" to ${mb.name}`);
     setBAcc(""); setMId("");
   };
 
   /**
    * Action handler: Accepts a transaction record and marks it 'Returned'.
-   * Restocks the book inside the Library by increasing 'available'.
+   * Restocks the book inside the Library and syncs to Firestore.
    */
   const returnB = (txn: Transaction) => {
     const bk = books.find(b => b.id === txn.bookId);
-    setTxns(txns.map(t => t.id === txn.id ? { ...t, status: "Returned", returnDate: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" }) } : t));
+    const retDate = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" });
     
-    if (bk) setBooks(books.map(b => b.id === bk.id ? { ...b, available: b.available + 1 } : b));
+    setTxns(txns.map(t => t.id === txn.id ? { ...t, status: "Returned", returnDate: retDate } : t));
+    
+    const newAvail = bk ? bk.available + 1 : 1;
+    if (bk) setBooks(books.map(b => b.id === bk.id ? { ...b, available: newAvail } : b));
+    
+    // Sync to Firestore
+    syncReturnBook(txn.id, bk?.id, newAvail, retDate);
     
     const isLate = Math.random() > 0.8; // Simple mock for fine demo
     if (isLate) addToast("warning", `Book returned late. Fine: ₹${calcFine(txn.dueDate)} added.`);
@@ -74,7 +101,12 @@ export default function IssueReturn({ books, setBooks, members, txns, setTxns, a
     if ((txn as any).renewed) return addToast("warning", "This loan has already been renewed.");
     const due = new Date(); due.setDate(due.getDate() + 14);
     const dueDate = due.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    
     setTxns(txns.map(t => t.id === txn.id ? { ...t, dueDate, renewed: true } : t));
+    
+    // Sync to Firestore
+    syncRenewBook(txn.id, dueDate);
+    
     addToast("success", `Renewed \"${txn.book}\" for ${txn.member} until ${dueDate}`);
   };
 

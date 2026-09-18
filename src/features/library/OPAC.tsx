@@ -6,6 +6,7 @@ import PrintModal from '../../components/ui/PrintModal';
 import { Book, User, Reservation, Review } from '../../types';
 import { CATS } from '../../data/mockData';
 import { formatBookQR } from '../../utils/qrHelper';
+import { syncAddReservation, syncAddReview } from '../../services/firestoreSync';
 
 interface OPACProps {
   books: Book[];
@@ -89,7 +90,7 @@ export default function OPAC({
       return addToast("error", "You already hold an active reservation for this item.");
     }
     const dt = new Date(); dt.setDate(dt.getDate() + 2);
-    setReservations([{
+    const newRes: Reservation = {
       id: "r" + Date.now(),
       bookId: bk.id,
       bookTitle: bk.title,
@@ -97,7 +98,9 @@ export default function OPAC({
       date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" }),
       status: "Active",
       expiresDate: dt.toLocaleDateString("en-US", { month: "short", day: "numeric" })
-    }, ...reservations]);
+    };
+    setReservations([newRes, ...reservations]);
+    syncAddReservation(newRes);
     addToast("success", `Reservation queued for "${bk.title}". Valid for 48 hrs.`);
     setShowD(null);
   };
@@ -116,16 +119,18 @@ export default function OPAC({
   const addRev = (bId: string) => {
     if (!rD.r) return addToast("error", "Please select a star rating.");
     const revs = reviews[bId] || [];
+    const newRev: Review = {
+      id: "rv" + Date.now(),
+      user: user.name,
+      rating: rD.r,
+      comment: rD.c,
+      date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" })
+    };
     setReviews({
       ...reviews,
-      [bId]: [{
-        id: "rv" + Date.now(),
-        user: user.name,
-        rating: rD.r,
-        comment: rD.c,
-        date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" })
-      }, ...revs]
+      [bId]: [newRev, ...revs]
     });
+    syncAddReview(bId, newRev);
     addToast("success", "Review submitted!");
     setRD({ r: 0, c: "" });
   };

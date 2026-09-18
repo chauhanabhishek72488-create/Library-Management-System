@@ -3,6 +3,7 @@ import Icon from '../../components/ui/Icon';
 import QRCode from '../../components/ui/QRCode';
 import { Member } from '../../types';
 import { formatMemberQR } from '../../utils/qrHelper';
+import { syncSaveMember, syncUpdateMemberStatus, syncDeleteMember } from '../../services/firestoreSync';
 
 interface MembersProps {
   members: Member[];
@@ -42,6 +43,7 @@ export default function Members({ members, setMembers, addToast }: MembersProps)
    */
   const mui = (mId: string, st: "Active" | "Suspended" | "Expired") => {
     setMembers(members.map(m => m.memberId === mId ? { ...m, status: st } : m));
+    syncUpdateMemberStatus(mId, st);
     addToast("success", `Member status updated to ${st}`);
   };
 
@@ -51,6 +53,7 @@ export default function Members({ members, setMembers, addToast }: MembersProps)
   const deleteMember = (mId: string) => {
     if (window.confirm("Are you sure you want to permanently delete this member?")) {
       setMembers(members.filter(m => m.memberId !== mId));
+      syncDeleteMember(mId);
       addToast("success", "Member deleted successfully!");
     }
   };
@@ -86,6 +89,7 @@ export default function Members({ members, setMembers, addToast }: MembersProps)
     };
 
     setMembers([newMember, ...members]);
+    syncSaveMember(newMember);
     addToast("success", `Member ${form.name} registered successfully!`);
     setShowAddModal(false);
     setForm({ name: "", email: "", phone: "", type: "Student", idType: "College ID", idNumber: "" });

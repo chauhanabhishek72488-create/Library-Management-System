@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import Icon from '../../components/ui/Icon';
 import { Book, Member, Transaction } from '../../types';
+import { syncIssueBook } from '../../services/firestoreSync';
 
 interface QRIssuePageProps {
   books: Book[];
@@ -221,7 +222,7 @@ export default function QRIssuePage({ books, setBooks, members, txns, setTxns, a
       bookId: resolvedBook.id,
       book: resolvedBook.title,
       accessionNo: resolvedBook.accessionNo,
-      memberId: resolvedMember.id,
+      memberId: resolvedMember.memberId || resolvedMember.id,
       member: resolvedMember.name,
       issueDate,
       dueDate,
@@ -232,7 +233,9 @@ export default function QRIssuePage({ books, setBooks, members, txns, setTxns, a
     };
 
     setTxns([newTxn, ...txns]);
-    setBooks(books.map(b => b.id === resolvedBook.id ? { ...b, available: b.available - 1 } : b));
+    const newAvail = Math.max(0, resolvedBook.available - 1);
+    setBooks(books.map(b => b.id === resolvedBook.id ? { ...b, available: newAvail } : b));
+    syncIssueBook(newTxn, resolvedBook.id, newAvail);
     addToast('success', `✅ Issued "${resolvedBook.title}" to ${resolvedMember.name} — Due ${dueDate}`);
 
     setIssueDone(true);

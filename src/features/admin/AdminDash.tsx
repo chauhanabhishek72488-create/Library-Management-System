@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import Icon from '../../components/ui/Icon';
 import { Book, Member, Transaction } from '../../types';
 import { calcFine } from '../../utils/helpers';
+import { syncIssueBook, syncReturnBook, syncRenewBook } from '../../services/firestoreSync';
 
 interface AdminDashProps {
   books: Book[];
@@ -23,6 +24,14 @@ export default function AdminDash({ books, members, txns, setBooks, setTxns, add
   
   // Calculate total currently issued books (Total copies minus available copies)
   const iss = books.reduce((s, b) => s + (b.copies - b.available), 0);
+  
+  // Total registered members
+  const mem = members.length;
+  
+  // Calculate total overdue books by comparing the due date against current date
+  const ovd = txns.filter(t => t.status === "Overdue" || (t.status === "Issued" && new Date(t.dueDate) < new Date())).length;
+  
+  // Local state for the quick-issue floating/inline widget
   const [memberId, setMemberId] = useState("");
   const [accessionNo, setAccessionNo] = useState("");
   const recentIssues = [...txns]
@@ -45,15 +54,21 @@ export default function AdminDash({ books, members, txns, setBooks, setTxns, add
   // Calculate total live fines across all members' transactions
   const totalFines = txns.reduce((s, t) => s + calcFine(t.dueDate, t.returnDate), 0);
 
+  /**
+   * Action handler: Fast issue modal/box directly inside the Dashboard.
+   * Decrements stock and injects new Transaction without navigating to Issue page.
+   */
   const issueBook = () => {
-    const bk = books.find(b => b.accessionNo.toLowerCase() === accessionNo.toLowerCase());
-    const mb = members.find(m => m.memberId.toLowerCase() === memberId.toLowerCase());
+    const bk = books.find(b => b.accessionNo.toLowerCase() === accessionNo.toLowerCase().trim());
+    const mb = members.find(m => m.memberId.toLowerCase() === memberId.toLowerCase().trim());
+
     if (!bk) return addToast("error", "Accession number not found.");
     if (bk.available < 1) return addToast("error", "Book is out of stock.");
-    if (!mb) return addToast("error", "Member ID not found.");
-    if (mb.status !== "Active") return addToast("error", "Member account is not active.");
-    const activeLoans = txns.filter(t => t.memberId === mb.id && t.status !== "Returned");
-    if (activeLoans.length >= 3) return addToast("warning", "Member reached borrowing limit (3).\n");
+    if (!mb) return addToast("error", "Member not found.");
+    if (mb.status !== "Active") return addToast("error", "Member account is suspended/expired.");
+
+    const actTxns = txns.filter(t => t.member === mb.name && t.status !== "Returned");
+    if (actTxns.length >= 3) return addToast("warning", "Member has reached the 3-book limit.");
 
     const issueDate = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" });
     const due = new Date();
@@ -63,7 +78,8 @@ export default function AdminDash({ books, members, txns, setBooks, setTxns, add
       id: "t" + Date.now(),
       bookId: bk.id,
       book: bk.title,
-      memberId: mb.id,
+      accessionNo: bk.accessionNo,
+      memberId: mb.memberId || mb.id,
       member: mb.name,
       issueDate,
       dueDate,
@@ -73,7 +89,9 @@ export default function AdminDash({ books, members, txns, setBooks, setTxns, add
       renewed: false,
     };
     setTxns([newTxn, ...txns]);
-    setBooks(books.map(b => b.id === bk.id ? { ...b, available: b.available - 1 } : b));
+    const newAvail = Math.max(0, bk.available - 1);
+    setBooks(books.map(b => b.id === bk.id ? { ...b, available: newAvail } : b));
+    syncIssueBook(newTxn, bk.id, newAvail);
     addToast("success", `Issued \"${bk.title}\" to ${mb.name}`);
     setMemberId("");
     setAccessionNo("");
@@ -84,13 +102,17 @@ export default function AdminDash({ books, members, txns, setBooks, setTxns, add
     const due = new Date(); due.setDate(due.getDate() + 14);
     const dueDate = due.toLocaleDateString("en-US", { month: "short", day: "numeric" });
     setTxns(txns.map(t => t.id === txn.id ? { ...t, dueDate, renewed: true } : t));
+    syncRenewBook(txn.id, dueDate);
     addToast("success", `Renewed \"${txn.book}\" for ${txn.member} until ${dueDate}`);
   };
 
   const quickReturn = (txn: Transaction) => {
     const bk = books.find(b => b.id === txn.bookId);
-    setTxns(txns.map(t => t.id === txn.id ? { ...t, status: "Returned", returnDate: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" }) } : t));
-    if (bk) setBooks(books.map(b => b.id === bk.id ? { ...b, available: b.available + 1 } : b));
+    const retDate = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    setTxns(txns.map(t => t.id === txn.id ? { ...t, status: "Returned", returnDate: retDate } : t));
+    const newAvail = bk ? bk.available + 1 : 1;
+    if (bk) setBooks(books.map(b => b.id === bk.id ? { ...b, available: newAvail } : b));
+    syncReturnBook(txn.id, bk?.id, newAvail, retDate);
     const fine = calcFine(txn.dueDate);
     if (fine > 0) addToast("warning", `Book returned. Fine: ₹${fine} added.`);
     else addToast("success", "Book returned successfully.");
